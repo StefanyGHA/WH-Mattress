@@ -1,17 +1,24 @@
-import * as ImagePicker from "expo-image-picker";
-import { useState } from "react";
-import { Ionicons } from "@expo/vector-icons";
-import { Alert, Modal, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
-import { useRouter } from "expo-router";
 import Header from "@/components/Header";
+import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
+import { useRouter } from "expo-router";
+import { useState } from "react";
+import { Alert, Modal, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 export default function HomeScreen() {
  const router = useRouter();
  const [photos, setPhotos] = useState<string[]>([]); //guarda el orden de las fotos
+ const [photoLimit, setPhotoLimit] = useState(9);
+ const [showPhotoModal, setShowPhotoModal] = useState(false);
+ const [photoMode, setPhotoMode] = useState<"camera" | "gallery" | null>(null);
  
+ const openPhotoSelector = (mode: "camera" | "gallery") => {
+  setPhotoMode(mode);
+  setShowPhotoModal(true);
+};
 
  const pickImage = async () => {
-  const permission =
+ const permission =
     await ImagePicker.requestMediaLibraryPermissionsAsync();
 
   if (!permission.granted) {
@@ -34,19 +41,34 @@ export default function HomeScreen() {
 };
 
 const takePhoto = async () => {
+  //Evitar tomar mas fotos de las selecionadas
+  if (photos.length >= photoLimit){
+    Alert.alert(
+      "Fotografías completas",
+       `Ya tomó las ${photoLimit} fotografías seleccionadas.`
+    );
+    return;
+  }
+
+  //Pedir permisos de camara 
   const permission =
     await ImagePicker.requestCameraPermissionsAsync();
 
   if (!permission.granted) {
-    alert("Necesitas permitir acceso a la cámara.");
+    Alert.alert(
+      "Permiso requerido",
+      "Necesitas permitir acceso a la cámara."
+    );
     return;
   }
 
+  //Abrir la camara
   const result = await ImagePicker.launchCameraAsync({
     mediaTypes: ["images"],
     quality: 1,
   });
 
+  //Guardar fotos
   if (!result.canceled) {
     const photoUri = result.assets[0].uri;
 
@@ -54,8 +76,10 @@ const takePhoto = async () => {
 
     setPhotos(updatePhotos);
 
-    if (updatePhotos.length === 9) {
-        console.log("Ya se completaron las 9 fotografías!");
+    if (updatePhotos.length === photoLimit) {
+        console.log(
+          `Ya se completaron las ${photoLimit} fotografías!`
+        );
     }
   }
 };
@@ -89,10 +113,10 @@ const takePhoto = async () => {
         </View>
 
     {/* Botones */}
-        <View style={styles.buttonsContainer}>
+<View style={styles.buttonsContainer}>
   <TouchableOpacity
     style={styles.button}
-    onPress={pickImage}
+    onPress={() => openPhotoSelector("gallery")} //para cargar la foto
   >
     <Ionicons
       name="images-outline"
@@ -103,14 +127,12 @@ const takePhoto = async () => {
     <Text style={styles.buttonText}>
       Cargar foto
     </Text>
-    <Text style={styles.photoCounter}>
-  Fotografías: {photos.length}/9
-</Text>
+    
   </TouchableOpacity>
 
   <TouchableOpacity
     style={styles.button}
-    onPress={takePhoto}
+    onPress={() => openPhotoSelector("camera")} //para tomar la foto
   >
     <Ionicons
       name="camera-outline"
@@ -124,12 +146,11 @@ const takePhoto = async () => {
   </TouchableOpacity>
 </View>
       </View>
-
       <Text style={styles.photoCounter}>
-  Fotografías: {photos.length}/9
+  Fotografías: {photos.length}/{photoLimit}
 </Text>
 
-{photos.length === 9 && (
+{photos.length === photoLimit && (
   <TouchableOpacity
     style={styles.continueButton}
     onPress={() =>
@@ -145,6 +166,80 @@ const takePhoto = async () => {
     <Ionicons name="arrow-forward" size={22} color="#FFFFFF" />
   </TouchableOpacity>
 )}
+
+<Modal
+  visible={showPhotoModal}
+  transparent
+  animationType="fade"
+  onRequestClose={() => setShowPhotoModal(false)}
+>
+  <View style={styles.modalOverlay}>
+    <View style={styles.modalContainer}>
+
+      <Text style={styles.modalTitle}>
+        ¿Cuántas fotografías desea usar?
+      </Text>
+
+      <Text style={styles.modalDescription}>
+        Seleccione la cantidad de fotografías que tendrá el informe.
+      </Text>
+
+      <View style={styles.counterContainer}>
+        <TouchableOpacity
+          style={styles.counterButton}
+          onPress={() =>
+            setPhotoLimit((current) =>
+              current > 1 ? current - 1 : current
+            )
+          }
+        >
+          <Ionicons name="remove" size={26} color="#FFFFFF" />
+        </TouchableOpacity>
+
+        <Text style={styles.counterNumber}>
+          {photoLimit}
+        </Text>
+
+        <TouchableOpacity
+          style={styles.counterButton}
+          onPress={() =>
+            setPhotoLimit((current) => current + 1)
+          }
+        >
+          <Ionicons name="add" size={26} color="#FFFFFF" />
+        </TouchableOpacity>
+      </View>
+
+      <TouchableOpacity
+        style={styles.modalContinueButton}
+        onPress={() => {
+          setShowPhotoModal(false);
+
+          if (photoMode === "camera") {
+            takePhoto();
+          }
+
+          if (photoMode === "gallery") {
+            pickImage();
+          }
+        }}
+      >
+        <Text style={styles.modalContinueText}>
+          Continuar
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={() => setShowPhotoModal(false)}
+      >
+        <Text style={styles.cancelText}>
+          Cancelar
+        </Text>
+      </TouchableOpacity>
+
+    </View>
+  </View>
+</Modal>
     </SafeAreaView>
   );
 }
@@ -265,5 +360,78 @@ continueButtonText: {
   color: "#FFFFFF",
   fontSize: 16,
   fontWeight: "700",
+},
+modalOverlay: {
+  flex: 1,
+  backgroundColor: "rgba(0,0,0,0.45)",
+  justifyContent: "center",
+  alignItems: "center",
+  padding: 24,
+},
+
+modalContainer: {
+  width: "100%",
+  backgroundColor: "#FFFFFF",
+  borderRadius: 20,
+  padding: 24,
+  alignItems: "center",
+},
+
+modalTitle: {
+  fontSize: 20,
+  fontWeight: "700",
+  color: "#202124",
+  textAlign: "center",
+},
+
+modalDescription: {
+  fontSize: 14,
+  color: "#6B7280",
+  textAlign: "center",
+  marginTop: 8,
+},
+
+counterContainer: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 25,
+  marginVertical: 30,
+},
+
+counterButton: {
+  width: 48,
+  height: 48,
+  borderRadius: 24,
+  backgroundColor: "#20B3AD",
+  justifyContent: "center",
+  alignItems: "center",
+},
+
+counterNumber: {
+  fontSize: 34,
+  fontWeight: "700",
+  minWidth: 50,
+  textAlign: "center",
+},
+
+modalContinueButton: {
+  width: "100%",
+  height: 52,
+  borderRadius: 26,
+  backgroundColor: "#20B3AD",
+  justifyContent: "center",
+  alignItems: "center",
+},
+
+modalContinueText: {
+  color: "#FFFFFF",
+  fontSize: 16,
+  fontWeight: "700",
+},
+
+cancelText: {
+  color: "#6B7280",
+  marginTop: 18,
+  fontSize: 14,
 },
 });
