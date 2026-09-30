@@ -1,18 +1,50 @@
 import Header from "@/components/Header";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
-import { Image} from "react-native";
-import { useLocalSearchParams } from "expo-router";
-import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import {
+  Alert,
+  Image,
+  SafeAreaView,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 export default function ReportScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
 
-const photos: string[] = params.photos
-  ? JSON.parse(params.photos as string)
-  : [];
+  const photos: string[] = params.photos
+    ? JSON.parse(params.photos as string)
+    : [];
 
+  const cancelReport = () => {
+    Alert.alert(
+      "Cancelar informe",
+      "¿Está seguro de que desea cancelar? Se eliminarán todas las fotografías del informe actual.",
+      [
+        {
+          text: "No",
+          style: "cancel",
+        },
+        {
+          text: "Sí, cancelar",
+          style: "destructive",
+          onPress: () => {
+            router.replace({
+              pathname: "/",
+              params: {
+                reset: "true",
+              },
+            });
+          },
+        },
+      ]
+    );
+  };
+  
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
@@ -23,23 +55,34 @@ const photos: string[] = params.photos
         showsVerticalScrollIndicator={false}
       >
         {/* Boton editar */}
-        <TouchableOpacity style={styles.editButton}>
-          <Ionicons name="create-outline" size={24} color="#FFFFFF" />
+        <TouchableOpacity
+  style={styles.editButton}
+  onPress={() =>
+    router.push({
+      pathname: "/edit-report",
+      params: {
+        photos: JSON.stringify(photos),
+      },
+    })
+  }
+>
+  <Ionicons name="create-outline" size={24} color="#FFFFFF" />
 
-          <View>
-            <Text style={styles.editTitle}>Editar informe</Text>
-            <Text style={styles.editSubtitle}>
-              Organiza las fotografías antes del PDF
-            </Text>
-          </View>
+  <View>
+    <Text style={styles.editTitle}>Editar informe</Text>
 
-          <Ionicons
-            name="chevron-forward"
-            size={24}
-            color="#FFFFFF"
-            style={styles.chevron}
-          />
-        </TouchableOpacity>
+    <Text style={styles.editSubtitle}>
+      Organiza las fotografías antes del PDF
+    </Text>
+  </View>
+
+  <Ionicons
+    name="chevron-forward"
+    size={24}
+    color="#FFFFFF"
+    style={styles.chevron}
+  />
+</TouchableOpacity>
 
         <Text style={styles.previewTitle}>Vista previa del informe</Text>
 
@@ -109,6 +152,21 @@ const photos: string[] = params.photos
           <Ionicons name="document-text-outline" size={22} color="#FFFFFF" />
           <Text style={styles.generateButtonText}>Generar PDF</Text>
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.cancelButton}
+          onPress={cancelReport}
+        >
+          <Ionicons
+            name="trash-outline"
+            size={21}
+            color="#DC2626"
+        />
+
+  <Text style={styles.cancelButtonText}>
+    Cancelar informe
+  </Text>
+</TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );
@@ -405,4 +463,23 @@ rightPhoto: {
   width: "100%",
   height: "100%",
 },
+
+cancelButton: {
+  height: 55,
+  borderRadius: 28,
+  marginTop: 12,
+  borderWidth: 1.5,
+  borderColor: "#DC2626",
+  flexDirection: "row",
+  justifyContent: "center",
+  alignItems: "center",
+  gap: 8,
+},
+
+cancelButtonText: {
+  color: "#DC2626",
+  fontSize: 15,
+  fontWeight: "600",
+},
+
 });

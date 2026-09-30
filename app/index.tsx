@@ -12,77 +12,104 @@ export default function HomeScreen() {
  const [showPhotoModal, setShowPhotoModal] = useState(false);
  const [photoMode, setPhotoMode] = useState<"camera" | "gallery" | null>(null);
  
- const openPhotoSelector = (mode: "camera" | "gallery") => {
-  setPhotoMode(mode);
-  setShowPhotoModal(true);
-};
+  const openPhotoSelector = (mode: "camera" | "gallery") => {
+    setPhotoMode(mode);
+    setShowPhotoModal(true);
+  };
 
- const pickImage = async () => {
- const permission =
-    await ImagePicker.requestMediaLibraryPermissionsAsync();
+  // --------------------------------------------------
+  // CARGAR FOTOS DESDE GALERÍA
+  // --------------------------------------------------
 
-  if (!permission.granted) {
-    alert("Necesitas permitir acceso a la galería.");
-    return;
-  }
+  const pickImage = async () => {
+    const permission =
+      await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-  const result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: ["images"],
-    allowsMultipleSelection: true,
-    quality: 1,
-  });
-
-  if (!result.canceled) {
-    console.log("IMÁGENES SELECCIONADAS:");
-    console.log(result.assets);
-
-    router.push("/report");
-  }
-};
-
-const takePhoto = async () => {
-  //Evitar tomar mas fotos de las selecionadas
-  if (photos.length >= photoLimit){
-    Alert.alert(
-      "Fotografías completas",
-       `Ya tomó las ${photoLimit} fotografías seleccionadas.`
-    );
-    return;
-  }
-
-  //Pedir permisos de camara 
-  const permission =
-    await ImagePicker.requestCameraPermissionsAsync();
-
-  if (!permission.granted) {
-    Alert.alert(
-      "Permiso requerido",
-      "Necesitas permitir acceso a la cámara."
-    );
-    return;
-  }
-
-  //Abrir la camara
-  const result = await ImagePicker.launchCameraAsync({
-    mediaTypes: ["images"],
-    quality: 1,
-  });
-
-  //Guardar fotos
-  if (!result.canceled) {
-    const photoUri = result.assets[0].uri;
-
-    const updatePhotos = [...photos, photoUri];
-
-    setPhotos(updatePhotos);
-
-    if (updatePhotos.length === photoLimit) {
-        console.log(
-          `Ya se completaron las ${photoLimit} fotografías!`
-        );
+    if (!permission.granted) {
+      Alert.alert(
+        "Permiso requerido",
+        "Necesitas permitir acceso a la galería."
+      );
+      return;
     }
-  }
-};
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsMultipleSelection: true,
+      selectionLimit: photoLimit,
+      quality: 1,
+    });
+
+    if (!result.canceled) {
+      const selectedPhotos = result.assets.map(
+        (image) => image.uri
+      );
+
+      setPhotos(selectedPhotos);
+
+      // Si seleccionó menos fotos de las indicadas
+      if (selectedPhotos.length < photoLimit) {
+        Alert.alert(
+          "Faltan fotografías",
+          `Seleccionaste ${selectedPhotos.length} de ${photoLimit} fotografías.`
+        );
+      }
+
+      // Si seleccionó todas
+      if (selectedPhotos.length === photoLimit) {
+        Alert.alert(
+          "Fotografías completadas",
+          `Se seleccionaron las ${photoLimit} fotografías correctamente.`
+        );
+      }
+    }
+  };
+
+  const takePhoto = async () => {
+    const permission =
+      await ImagePicker.requestCameraPermissionsAsync();
+
+    if (!permission.granted) {
+      Alert.alert(
+        "Permiso requerido",
+        "Necesitas permitir acceso a la cámara."
+      );
+      return;
+    }
+
+    // Copiamos las fotos que ya tenemos
+    const newPhotos = [...photos];
+
+    // Seguir abriendo cmara hasta completar
+    // la cantidad seleccionada
+    while (newPhotos.length < photoLimit) {
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ["images"],
+        quality: 1,
+      });
+
+      // Si el usuario presiona cancelar
+      if (result.canceled) {
+        break;
+      }
+
+      const photoUri = result.assets[0].uri;
+
+      // Guardar nueva fotografía
+      newPhotos.push(photoUri);
+
+      // Actualizar estado
+      setPhotos([...newPhotos]);
+    }
+
+    // Cuando termina todas las fotografías
+    if (newPhotos.length === photoLimit) {
+      Alert.alert(
+        "Fotografías completadas",
+        `Se tomaron las ${photoLimit} fotografías correctamente.`
+      );
+    }
+  };
 
   return (
     <SafeAreaView style={styles.container}>
