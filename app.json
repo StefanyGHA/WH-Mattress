@@ -38,7 +38,20 @@
             "backgroundColor": "#000000"
           }
         }
-      ]
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Permite acceder a tus fotografías para crear el informe WH Mattress.",
+          "cameraPermission": "Permite usar la cámara para fotografiar las etiquetas, apariencia y medidas del colchón.",
+          "microphonePermission": false
+        }
+      ],
+      "expo-font",
+      "expo-image",
+      "expo-sharing",
+      "expo-status-bar",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,

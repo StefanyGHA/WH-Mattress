@@ -1,464 +1,95 @@
-import Header from "@/components/Header";
-import { Ionicons } from "@expo/vector-icons";
-import * as ImagePicker from "expo-image-picker";
-import { useRouter } from "expo-router";
-import { useState } from "react";
-import { Alert, Modal, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import Header from '@/components/Header';
+import { reportStyles as s } from '@/components/report-styles';
+import { useReport } from '@/contexts/report';
+import { categoryForNumber, categoryTitle, PHOTO_CATEGORIES, type ReportPhoto } from '@/utils/report-photos';
+import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import { useRouter } from 'expo-router';
+import { useState } from 'react';
+import { Alert, Image, Modal, SafeAreaView, ScrollView, Text, TouchableOpacity, View } from 'react-native';
 
 export default function HomeScreen() {
- const router = useRouter();
- const [photos, setPhotos] = useState<string[]>([]); //guarda el orden de las fotos
- const [photoLimit, setPhotoLimit] = useState(9);
- const [showPhotoModal, setShowPhotoModal] = useState(false);
- const [photoMode, setPhotoMode] = useState<"camera" | "gallery" | null>(null);
- 
-  const openPhotoSelector = (mode: "camera" | "gallery") => {
-    setPhotoMode(mode);
-    setShowPhotoModal(true);
+  const router = useRouter();
+  const { photos, setPhotos } = useReport();
+  const [limit, setLimit] = useState(9);
+  const [draftLimit, setDraftLimit] = useState(9);
+  const [mode, setMode] = useState<'camera' | 'gallery'>('camera');
+  const [showModal, setShowModal] = useState(false);
+  const [started, setStarted] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const next = Math.max(0, ...photos.map(photo => photo.number)) + 1;
+  const complete = photos.length >= limit;
+
+  const acquire = async (source: 'camera' | 'gallery', count = limit, existing = photos) => {
+    if (busy || existing.length >= count) return;
+    setBusy(true);
+    try {
+      if (source === 'camera') {
+        const permission = await ImagePicker.requestCameraPermissionsAsync();
+        if (!permission.granted) {
+          Alert.alert('Permiso requerido', 'Permite el acceso a la cámara desde los ajustes del teléfono.');
+          return;
+        }
+      }
+      const result = source === 'camera'
+        ? await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.8, base64: true })
+        : await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: true, orderedSelection: true, selectionLimit: count - existing.length, quality: 0.8, base64: true });
+      if (!result.canceled) {
+        const added: ReportPhoto[] = result.assets.slice(0, count - existing.length).map((asset, index) => {
+          const number = Math.max(0, ...existing.map(photo => photo.number)) + index + 1;
+          return { id: `${Date.now()}-${number}`, uri: asset.uri, base64: asset.base64, number, category: categoryForNumber(number) };
+        });
+        setPhotos([...existing, ...added]);
+      }
+    } catch {
+      Alert.alert('No se pudo cargar la foto', 'Intenta nuevamente. Tus fotos anteriores se conservaron.');
+    } finally { setBusy(false); }
   };
 
-  // --------------------------------------------------
-  // CARGAR FOTOS DESDE GALERÍA
-  // --------------------------------------------------
-
-  const pickImage = async () => {
-    const permission =
-      await ImagePicker.requestMediaLibraryPermissionsAsync();
-
-    if (!permission.granted) {
-      Alert.alert(
-        "Permiso requerido",
-        "Necesitas permitir acceso a la galería."
-      );
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      allowsMultipleSelection: true,
-      selectionLimit: photoLimit,
-      quality: 1,
-    });
-
-    if (!result.canceled) {
-      const selectedPhotos = result.assets.map(
-        (image) => image.uri
-      );
-
-      setPhotos(selectedPhotos);
-
-      // Si seleccionó menos fotos de las indicadas
-      if (selectedPhotos.length < photoLimit) {
-        Alert.alert(
-          "Faltan fotografías",
-          `Seleccionaste ${selectedPhotos.length} de ${photoLimit} fotografías.`
-        );
-      }
-
-      // Si seleccionó todas
-      if (selectedPhotos.length === photoLimit) {
-        Alert.alert(
-          "Fotografías completadas",
-          `Se seleccionaron las ${photoLimit} fotografías correctamente.`
-        );
-      }
-    }
+  const selectMode = (source: 'camera' | 'gallery') => {
+    setMode(source);
+    if (photos.length > 0 && !complete) { setStarted(true); return; }
+    setDraftLimit(limit);
+    setShowModal(true);
   };
 
-  const takePhoto = async () => {
-    const permission =
-      await ImagePicker.requestCameraPermissionsAsync();
-
-    if (!permission.granted) {
-      Alert.alert(
-        "Permiso requerido",
-        "Necesitas permitir acceso a la cámara."
-      );
-      return;
-    }
-
-    // Copiamos las fotos que ya tenemos
-    const newPhotos = [...photos];
-
-    // Seguir abriendo cmara hasta completar
-    // la cantidad seleccionada
-    while (newPhotos.length < photoLimit) {
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ["images"],
-        quality: 1,
-      });
-
-      // Si el usuario presiona cancelar
-      if (result.canceled) {
-        break;
-      }
-
-      const photoUri = result.assets[0].uri;
-
-      // Guardar nueva fotografía
-      newPhotos.push(photoUri);
-
-      // Actualizar estado
-      setPhotos([...newPhotos]);
-    }
-
-    // Cuando termina todas las fotografías
-    if (newPhotos.length === photoLimit) {
-      Alert.alert(
-        "Fotografías completadas",
-        `Se tomaron las ${photoLimit} fotografías correctamente.`
-      );
-    }
-  };
-
-  return (
-    <SafeAreaView style={styles.container}>
-
-      {/* Header */}
-     <Header />
-
-      {/* Texto principal */}
-      <View style={styles.content}>
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Crea tu informe en PDF</Text>
-
-          <Text style={styles.description}>
-            Convierte tus fotografías en PDF al cargarlas o tomarlas de manera
-            instantánea. Tú eliges la cantidad de imágenes y el orden de las
-            páginas.
-          </Text>
-
-          <View style={styles.iconsContainer}>
-            <View style={styles.iconBox}>
-              <Ionicons name="images-outline" size={48} color="#FFFFFF" />
-            </View>
-
-            <View style={styles.iconBox}>
-              <Ionicons name="camera-outline" size={48} color="#FFFFFF" />
-            </View>
-          </View>
+  return <SafeAreaView style={s.screen}>
+    <Header />
+    <ScrollView contentContainerStyle={s.content}>
+      <Text style={s.title}>Fotografías del informe</Text>
+      <Text style={s.text}>Elige la cantidad y captura cada foto con su categoría. Después puedes moverlas en Editar informe.</Text>
+      <View style={s.row}>
+        <TouchableOpacity disabled={busy} style={[s.button, { flex: 1 }]} onPress={() => selectMode('gallery')}><Ionicons name="images-outline" size={22} color="white" /><Text style={s.buttonText}>Galería</Text></TouchableOpacity>
+        <TouchableOpacity disabled={busy} style={[s.button, { flex: 1 }]} onPress={() => selectMode('camera')}><Ionicons name="camera-outline" size={22} color="white" /><Text style={s.buttonText}>Cámara</Text></TouchableOpacity>
+      </View>
+      <Text style={s.category}>Fotografías: {photos.length}/{limit}</Text>
+      {started && !complete && <View style={s.card}>
+        <Text style={s.text}>Siguiente: foto {next} de {limit}</Text>
+        <Text style={s.category}>{categoryTitle(categoryForNumber(next))}</Text>
+        <Text style={s.text}>{mode === 'camera' ? 'Toma esta fotografía y vuelve aquí para ver la siguiente categoría.' : 'Selecciona las fotos en orden: caja, colchón, apariencia y medidas.'}</Text>
+        <TouchableOpacity disabled={busy} style={[s.button, busy && s.disabled]} onPress={() => acquire(mode)}><Text style={s.buttonText}>{busy ? 'Cargando…' : mode === 'camera' ? `Tomar foto ${next}` : 'Seleccionar fotos'}</Text></TouchableOpacity>
+      </View>}
+      {PHOTO_CATEGORIES.map(category => {
+        const group = photos.filter(photo => photo.category === category.id);
+        return <View key={category.id} style={s.card}><Text style={s.category}>{category.title}</Text>
+          {group.length === 0 ? <Text style={s.text}>Sin fotografías</Text> : <View style={s.grid}>{group.map(photo => <View key={photo.id} style={s.photoCard}><Image source={{ uri: photo.uri }} style={s.photo} resizeMode="contain" /><Text style={s.caption}>Foto {photo.number}</Text></View>)}</View>}
+        </View>;
+      })}
+      {photos.length > 0 && <TouchableOpacity disabled={busy} style={[s.button, s.secondary]} onPress={() => router.push('/report')}><Text style={s.buttonText}>{complete ? 'Continuar al informe' : 'Revisar informe parcial'}</Text></TouchableOpacity>}
+    </ScrollView>
+    <Modal visible={showModal} transparent animationType="fade" onRequestClose={() => setShowModal(false)}>
+      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', padding: 24 }}><View style={s.card}>
+        <Text style={s.title}>¿Cuántas fotografías?</Text>
+        <Text style={s.text}>1: caja · 2: colchón · 3–5: apariencia · 6 en adelante: medidas. Podrás cambiar las categorías.</Text>
+        {photos.length > 0 && <Text style={s.text}>Al iniciar un nuevo informe se reemplazarán las fotos actuales.</Text>}
+        <View style={[s.row, { justifyContent: 'center' }]}>
+          <TouchableOpacity accessibilityLabel="Reducir cantidad" style={s.button} onPress={() => setDraftLimit(n => Math.max(1, n - 1))}><Text style={s.buttonText}>−</Text></TouchableOpacity>
+          <Text style={s.title}>{draftLimit}</Text>
+          <TouchableOpacity accessibilityLabel="Aumentar cantidad" style={s.button} onPress={() => setDraftLimit(n => Math.min(50, n + 1))}><Text style={s.buttonText}>+</Text></TouchableOpacity>
         </View>
-
-    {/* Botones */}
-<View style={styles.buttonsContainer}>
-  <TouchableOpacity
-    style={styles.button}
-    onPress={() => openPhotoSelector("gallery")} //para cargar la foto
-  >
-    <Ionicons
-      name="images-outline"
-      size={22}
-      color="#FFFFFF"
-    />
-
-    <Text style={styles.buttonText}>
-      Cargar foto
-    </Text>
-    
-  </TouchableOpacity>
-
-  <TouchableOpacity
-    style={styles.button}
-    onPress={() => openPhotoSelector("camera")} //para tomar la foto
-  >
-    <Ionicons
-      name="camera-outline"
-      size={22}
-      color="#FFFFFF"
-    />
-
-    <Text style={styles.buttonText}>
-      Tomar foto
-    </Text>
-  </TouchableOpacity>
-</View>
-      </View>
-      <Text style={styles.photoCounter}>
-  Fotografías: {photos.length}/{photoLimit}
-</Text>
-
-{photos.length === photoLimit && (
-  <TouchableOpacity
-    style={styles.continueButton}
-    onPress={() =>
-      router.push({
-        pathname: "/report",
-        params: {
-          photos: JSON.stringify(photos),
-        },
-      })
-    }
-  >
-    <Text style={styles.continueButtonText}>Continuar</Text>
-    <Ionicons name="arrow-forward" size={22} color="#FFFFFF" />
-  </TouchableOpacity>
-)}
-
-<Modal
-  visible={showPhotoModal}
-  transparent
-  animationType="fade"
-  onRequestClose={() => setShowPhotoModal(false)}
->
-  <View style={styles.modalOverlay}>
-    <View style={styles.modalContainer}>
-
-      <Text style={styles.modalTitle}>
-        ¿Cuántas fotografías desea usar?
-      </Text>
-
-      <Text style={styles.modalDescription}>
-        Seleccione la cantidad de fotografías que tendrá el informe.
-      </Text>
-
-      <View style={styles.counterContainer}>
-        <TouchableOpacity
-          style={styles.counterButton}
-          onPress={() =>
-            setPhotoLimit((current) =>
-              current > 1 ? current - 1 : current
-            )
-          }
-        >
-          <Ionicons name="remove" size={26} color="#FFFFFF" />
-        </TouchableOpacity>
-
-        <Text style={styles.counterNumber}>
-          {photoLimit}
-        </Text>
-
-        <TouchableOpacity
-          style={styles.counterButton}
-          onPress={() =>
-            setPhotoLimit((current) => current + 1)
-          }
-        >
-          <Ionicons name="add" size={26} color="#FFFFFF" />
-        </TouchableOpacity>
-      </View>
-
-      <TouchableOpacity
-        style={styles.modalContinueButton}
-        onPress={() => {
-          setShowPhotoModal(false);
-
-          if (photoMode === "camera") {
-            takePhoto();
-          }
-
-          if (photoMode === "gallery") {
-            pickImage();
-          }
-        }}
-      >
-        <Text style={styles.modalContinueText}>
-          Continuar
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        onPress={() => setShowPhotoModal(false)}
-      >
-        <Text style={styles.cancelText}>
-          Cancelar
-        </Text>
-      </TouchableOpacity>
-
-    </View>
-  </View>
-</Modal>
-    </SafeAreaView>
-  );
+        <TouchableOpacity style={s.button} onPress={() => { setLimit(draftLimit); setPhotos([]); setStarted(true); setShowModal(false); }}><Text style={s.buttonText}>Iniciar informe</Text></TouchableOpacity>
+        <TouchableOpacity onPress={() => setShowModal(false)}><Text style={[s.text, { textAlign: 'center' }]}>Cancelar</Text></TouchableOpacity>
+      </View></View>
+    </Modal>
+  </SafeAreaView>;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#F7F8FA",
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingTop: 35,
-    justifyContent: "space-between",
-    paddingBottom: 45,
-  },
-
-  card: {
-    backgroundColor: "#20B3AD",
-    borderRadius: 18,
-    paddingHorizontal: 24,
-    paddingVertical: 30,
-    minHeight: 330,
-    justifyContent: "space-between",
-
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 3,
-    },
-
-    shadowOpacity: 0.15,
-    shadowRadius: 5,
-    elevation: 5,
-  },
-
-  cardTitle: {
-    color: "#FFFFFF",
-    fontSize: 22,
-    fontWeight: "700",
-    marginBottom: 15,
-  },
-
-  description: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    lineHeight: 23,
-  },
-
-  iconsContainer: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    marginTop: 30,
-  },
-
-  iconBox: {
-    width: 85,
-    height: 85,
-    borderRadius: 42.5,
-    backgroundColor: "rgba(255,255,255,0.15)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  buttonsContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 15,
-  },
-
-  button: {
-    flex: 1,
-    height: 58,
-    borderRadius: 30,
-    backgroundColor: "#20B3AD",
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    gap: 8,
-
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 3,
-    },
-
-    shadowOpacity: 0.18,
-    shadowRadius: 4,
-    elevation: 4,
-  },
-
-  buttonText: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "600",
-  },
-
-  photoCounter: {
-  textAlign: "center",
-  marginTop: 12,
-  fontSize: 15,
-  fontWeight: "600",
-  color: "#555555",
-},
-
-continueButton: {
-  marginTop: 15,
-  height: 55,
-  backgroundColor: "#20B3AD",
-  borderRadius: 28,
-  flexDirection: "row",
-  alignItems: "center",
-  justifyContent: "center",
-  gap: 8,
-},
-
-continueButtonText: {
-  color: "#FFFFFF",
-  fontSize: 16,
-  fontWeight: "700",
-},
-modalOverlay: {
-  flex: 1,
-  backgroundColor: "rgba(0,0,0,0.45)",
-  justifyContent: "center",
-  alignItems: "center",
-  padding: 24,
-},
-
-modalContainer: {
-  width: "100%",
-  backgroundColor: "#FFFFFF",
-  borderRadius: 20,
-  padding: 24,
-  alignItems: "center",
-},
-
-modalTitle: {
-  fontSize: 20,
-  fontWeight: "700",
-  color: "#202124",
-  textAlign: "center",
-},
-
-modalDescription: {
-  fontSize: 14,
-  color: "#6B7280",
-  textAlign: "center",
-  marginTop: 8,
-},
-
-counterContainer: {
-  flexDirection: "row",
-  alignItems: "center",
-  gap: 25,
-  marginVertical: 30,
-},
-
-counterButton: {
-  width: 48,
-  height: 48,
-  borderRadius: 24,
-  backgroundColor: "#20B3AD",
-  justifyContent: "center",
-  alignItems: "center",
-},
-
-counterNumber: {
-  fontSize: 34,
-  fontWeight: "700",
-  minWidth: 50,
-  textAlign: "center",
-},
-
-modalContinueButton: {
-  width: "100%",
-  height: 52,
-  borderRadius: 26,
-  backgroundColor: "#20B3AD",
-  justifyContent: "center",
-  alignItems: "center",
-},
-
-modalContinueText: {
-  color: "#FFFFFF",
-  fontSize: 16,
-  fontWeight: "700",
-},
-
-cancelText: {
-  color: "#6B7280",
-  marginTop: 18,
-  fontSize: 14,
-},
-});
