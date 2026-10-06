@@ -49,15 +49,20 @@ Join our community of developers creating universal apps.
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
 
-## Flujo de fotografías
+## Flujo de creación del reporte
 
-- Elige Cámara o Galería y la cantidad de fotografías (9 por defecto).
-- La distribución inicial es: foto 1 etiqueta de caja, foto 2 etiqueta del colchón, fotos 3–5 `OVERALL APPEARANCE`, fotos 6 en adelante `MEASURES`.
-- En Cámara, la app muestra el número y la categoría antes de abrir la cámara para cada captura. Al regresar, presenta la siguiente foto. En Galería, selecciona las imágenes en ese orden.
-- En Editar informe, arrastra desde el control **Arrastrar** hasta uno de los cuatro destinos fijos de arriba. El destino se resalta antes de soltar. También puedes usar **Mover a**. Guarda los cambios para actualizar el informe.
-- Los números originales se conservan al mover o eliminar fotos. El PDF usa las categorías guardadas y añade páginas para incluir todas las fotografías.
-- Las fotos del informe se conservan en memoria durante la sesión de la app.
+1. La fecha se obtiene del dispositivo y queda fijada al crear el reporte; no se solicita ni se modifica al exportar.
+2. Se solicita el lote principal del reporte y el modelo del colchón. El primer modelo pertenece al lote principal.
+3. Se pide primero una foto de la etiqueta de la caja y después una de la etiqueta del colchón. Ambas comparten una página del PDF.
+4. Se solicitan 3 fotos de `OVERALL APPEARANCE` y 6 de `MEASURES`. Se pueden agregar fotos por categoría antes de capturarlas.
+5. Las 3 apariencias y 6 medidas comparten una página, con la distribución del script Python. Las fotos sobrantes se incluyen en páginas adicionales del mismo modelo.
+6. Al finalizar se pregunta si se desea agregar otro lote. Si se acepta, se solicita el lote y se repite el registro del modelo y las fotos. El lote principal del reporte se conserva.
+7. El PDF comienza con el resumen general de modelos y utiliza el logo `assets/images/wh-m.jpg` en todas las páginas.
 
-Esta mejora no agrega dependencias npm. Usa las dependencias existentes de React Native, `expo-image-picker`, `expo-print` y `expo-sharing`, de acuerdo con la documentación de Expo SDK 54: https://docs.expo.dev/versions/v54.0.0/.
+El editor conserva el arrastre y **Mover a**. Selecciona el modelo que deseas editar para modificar sus datos o fotografías; los otros lotes se conservan. Los cambios se aplican al pulsar **Guardar cambios**. La fecha se mantiene automáticamente. Los estilos compartidos y el encabezado existentes no se modifican.
 
-Verificación: `npm test`, `npx tsc --noEmit` y `npm run lint`. Las pruebas comprueban clasificación, movimientos entre categorías, números estables, eliminación y paginación del informe.
+El reporte y sus imágenes se conservan en memoria durante la sesión de la aplicación. Esta modificación no agrega dependencias npm y conserva la versión de Expo instalada en el proyecto.
+
+Para usar el logo en PDF sin depender de rutas locales de iOS se incluye una copia Base64 generada desde el archivo original. Si reemplazas `assets/images/wh-m.jpg`, ejecuta `node scripts/generate-report-logo.cjs`. Las pruebas verifican que esa copia sea idéntica al archivo original.
+
+Verificación: `npm test`, `npx tsc --noEmit` y `npm run lint`. Las pruebas comprueban fecha local, lotes y modelos independientes, etiquetas, distribución 3+6, fotos adicionales, edición, logo, datos HTML y resumen paginado.
