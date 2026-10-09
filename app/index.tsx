@@ -70,7 +70,7 @@ export default function HomeScreen() {
       // La numeración es estable dentro de cada modelo y no se reutiliza tras eliminar fotos.
       const next = Math.max(0, ...model.photos.map(photo => photo.number)) + 1;
       const added: ReportPhoto[] = result.assets.slice(0, remaining).map((asset, index) => ({
-        id: `${model.id}-${Date.now()}-${next + index}`, uri: asset.uri, base64: asset.base64, number: next + index, category,
+        id: `${model.id}-${Date.now()}-${next + index}`, uri: asset.uri, base64: asset.base64, width: asset.width, height: asset.height, number: next + index, category,
       }));
       setReport(current => {
         const currentModel = current?.models.find(item => item.id === model.id);

@@ -3,6 +3,9 @@ import { reportStyles as s } from '@/components/report-styles';
 import { useReport } from '@/contexts/report';
 import { PHOTO_CATEGORIES, type ReportPhoto } from '@/utils/report-photos';
 import { buildPhotoReportHtml } from '@/utils/report-html';
+import { prepareReportForPrint } from '@/utils/prepare-report';
+import { preparePrintPhoto } from '@/utils/prepare-report-images';
+import { printReportHtml } from '@/utils/print-report';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { useRouter } from 'expo-router';
@@ -19,6 +22,8 @@ export default function ReportScreen() {
   const router = useRouter();
   const { report, setReport } = useReport();
   const [busy, setBusy] = useState(false);
+  // Permite ver el avance cuando el reporte contiene muchas fotografías.
+  const [progress, setProgress] = useState('');
   const photos = report?.models.flatMap(model => model.photos) ?? [];
 
   /** Exporta la fecha de creación y todas las páginas, incluido el resumen de Python. */
@@ -26,15 +31,17 @@ export default function ReportScreen() {
     if (busy || !report?.models.length) return;
     setBusy(true);
     try {
-      if (photos.some(photo => !photo.base64)) throw new Error('Missing image data');
-      const html = buildPhotoReportHtml(report);
+      setProgress('Preparando fotografías…');
+      const prepared = await prepareReportForPrint(report, preparePrintPhoto, (completed, total) => setProgress(`Preparando fotos ${completed}/${total}…`));
+      const html = buildPhotoReportHtml(prepared);
+      setProgress('Generando PDF…');
       // En web se usa la impresión del navegador; en celular se genera un archivo compartible.
-      if (Platform.OS === 'web') { await Print.printAsync({ html }); return; }
+      if (Platform.OS === 'web') { await printReportHtml(html); return; }
       const result = await Print.printToFileAsync({ html, width: 792, height: 612, margins: { top: 0, right: 0, bottom: 0, left: 0 } });
       if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(result.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: 'Compartir informe WH Mattress' });
       else Alert.alert('PDF generado', `Guardado en: ${result.uri}`);
-    } catch {
-      Alert.alert('No se pudo generar el PDF', 'Intenta nuevamente. Si el problema persiste, vuelve a cargar las fotografías.');
+    } catch (error) {
+      Alert.alert('No se pudo generar el PDF', error instanceof Error ? error.message : 'Intenta nuevamente.');
     } finally { setBusy(false); }
   };
 
@@ -73,7 +80,7 @@ export default function ReportScreen() {
       </View>)}
     </View>)}
     <Text style={s.text}>En el PDF, las 3 fotos de apariencia y las 6 de medidas comparten página. Los extras van en páginas adicionales del mismo modelo.</Text>
-    <TouchableOpacity disabled={busy || !report?.models.length} style={[s.button, (busy || !report?.models.length) && s.disabled]} onPress={generate}><Text style={s.buttonText}>{busy ? 'Generando PDF…' : 'Generar y compartir PDF'}</Text></TouchableOpacity>
+    <TouchableOpacity disabled={busy || !report?.models.length} style={[s.button, (busy || !report?.models.length) && s.disabled]} onPress={generate}><Text style={s.buttonText}>{busy ? progress : 'Generar y compartir PDF'}</Text></TouchableOpacity>
     <TouchableOpacity disabled={busy} onPress={cancel}><Text style={{ textAlign: 'center', padding: 15, color: '#DC2626', fontWeight: '600' }}>Cancelar informe</Text></TouchableOpacity>
   </ScrollView></SafeAreaView>;
 }

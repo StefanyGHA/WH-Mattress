@@ -8,7 +8,7 @@ export const PHOTO_CATEGORIES = [
 
 /** Cada foto conserva su identidad y número aunque cambie de categoría. */
 export type PhotoCategory = typeof PHOTO_CATEGORIES[number]['id'];
-export type ReportPhoto = { id: string; uri: string; number: number; category: PhotoCategory; base64?: string | null };
+export type ReportPhoto = { id: string; uri: string; number: number; category: PhotoCategory; base64?: string | null; width?: number; height?: number };
 
 /** Un modelo pertenece a un lote y tiene sus propias etiquetas y fotografías. */
 export type MattressModel = { id: string; name: string; lot: string; photos: ReportPhoto[] };

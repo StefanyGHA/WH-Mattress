@@ -53,7 +53,8 @@ export function buildPhotoReportHtml(report: ProductionReport) {
   const pages = buildReportPages(report);
   // El posicionamiento absoluto conserva las coordenadas de los paneles del PDF de referencia.
   const positioned = (x: number, y: number, width: number, height: number) => `left:${x}pt;top:${y}pt;width:${width}pt;height:${height}pt`;
-  const panel = (photo: ReportPhoto | undefined, title: string, x: number, y: number, width: number, height: number) => `<figure style="${positioned(x, y, width, height)}"><figcaption>${escapeHtml(title)}</figcaption>${photo?.base64 ? `<img class="photo" alt="Foto ${photo.number}" data-photo-id="${escapeHtml(photo.id)}" src="data:image/jpeg;base64,${photo.base64}" />` : '<div class="missing">Imagen no ingresada</div>'}</figure>`;
+  // El título visible indica la categoría; el número original queda solo en los metadatos de la imagen.
+  const panel = (photo: ReportPhoto | undefined, title: string, x: number, y: number, width: number, height: number) => `<figure style="${positioned(x, y, width, height)}"><figcaption>${escapeHtml(title)}</figcaption>${photo?.base64 ? `<img loading="eager" decoding="sync" class="photo" alt="Foto ${photo.number}" data-photo-id="${escapeHtml(photo.id)}" src="data:image/jpeg;base64,${photo.base64}" />` : '<div class="missing">Imagen no ingresada</div>'}</figure>`;
   // Modelo, fecha y lote aparecen en todas las páginas de detalle como en Python.
   const metadata = (model: MattressModel, labels: boolean) => `<div class="metadata ${labels ? 'label-meta' : ''}"><div class="model"><strong>${escapeHtml(model.name)}</strong><small>${labels ? 'MODELO DEL COLCHÓN' : 'MODELO'}</small></div><div class="date"><strong>${escapeHtml(report.date)}</strong><small>FECHA</small></div><div class="lot"><strong>${escapeHtml(model.lot)}</strong><small>LOTE</small></div></div>`;
 
@@ -70,12 +71,16 @@ export function buildPhotoReportHtml(report: ProductionReport) {
     const measures = page.measures!;
     // En las páginas adicionales la numeración continúa desde la página anterior.
     const appearanceOffset = page.appearanceOffset ?? 0;
+    // En una continuación se dibujan solo las fotos existentes, sin casillas ficticias.
+    const appearancePanel = (index: number, x: number, y: number, width: number, height: number) =>
+      appearanceOffset && !appearance[index] ? '' : panel(appearance[index], `APARIENCIA ${appearanceOffset + index + 1}`, x, y, width, height);
     const measuresOffset = page.measuresOffset ?? 0;
     let html = metadata(page.model!, false) + '<h2 style="left:24pt">OVERALL APPEARANCE</h2><h2 style="left:436.32pt">MEASURES</h2>';
-    html += panel(appearance[0], `APARIENCIA ${appearanceOffset + 1}`, 24, 155, 192.16, 207.48);
-    html += panel(appearance[1], `APARIENCIA ${appearanceOffset + 2}`, 226.16, 155, 192.16, 207.48);
-    html += panel(appearance[2], `APARIENCIA ${appearanceOffset + 3}`, 24, 372.48, 394.32, 191.52);
+    html += appearancePanel(0, 24, 155, 192.16, 207.48);
+    html += appearancePanel(1, 226.16, 155, 192.16, 207.48);
+    html += appearancePanel(2, 24, 372.48, 394.32, 191.52);
     for (let index = 0; index < 6; index++) {
+      if (measuresOffset && !measures[index]) continue;
       html += panel(measures[index], `MEDIDA ${measuresOffset + index + 1}`, 436.32 + (index % 2) * 170.84, 155 + Math.floor(index / 2) * (389 / 3 + 10), 160.84, 389 / 3);
     }
     return html;
@@ -104,5 +109,5 @@ export function buildPhotoReportHtml(report: ProductionReport) {
     table { position: absolute; left: 145pt; top: 245pt; width: 502pt; border-collapse: collapse; table-layout: fixed; font-size: 10pt; } th,td { height: 30pt; border: 1pt solid #8799A3; padding: 5pt 10pt; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; text-align: left; } th { background: #315E78; color: white; } td:first-child,th:first-child { text-align: center; } tbody tr:nth-child(even) { background: #F1F5F7; }
     .total { position: absolute; bottom: 40pt; width: 100%; text-align: center; font-size: 9pt; color: #52616A; }
     footer { position: absolute; bottom: 8pt; height: 17pt; left: 27pt; right: 27pt; border-top: 0.5pt solid #B8C5CC; padding-top: 5pt; display: flex; justify-content: space-between; color: #52616A; font-size: 8pt; }
-  </style></head><body>${pages.map((page, index) => `<section class="page"><img class="logo" alt="WH Mattress" src="${REPORT_LOGO}"/><h1>PRODUCTION REPORT WH MATTRESS PANAMA</h1><div class="subtitle">${page.title}</div>${body(page)}<footer><span>Reporte: ${escapeHtml(report.code)}</span><span>Página ${index + 1}</span></footer></section>`).join('')}</body></html>`;
+  </style></head><body>${pages.map((page, index) => `<section class="page"><img loading="eager" decoding="sync" class="logo" alt="WH Mattress" src="${REPORT_LOGO}"/><h1>PRODUCTION REPORT WH MATTRESS PANAMA</h1><div class="subtitle">${page.title}</div>${body(page)}<footer><span>Reporte: ${escapeHtml(report.code)}</span><span>Página ${index + 1}</span></footer></section>`).join('')}</body></html>`;
 }

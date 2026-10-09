@@ -42,7 +42,7 @@ assert.equal(pages[2].appearance.length, 3);
 assert.equal(pages[2].measures.length, 6);
 
 // Los extras de cualquiera de las categorías se separan, sin alterar la primera página.
-for (const [appearance, measures] of [[4, 6], [3, 7], [7, 13]]) {
+for (const [appearance, measures] of [[4, 6], [3, 7], [5, 10], [7, 13]]) {
   const additional = { ...report, models: [{ ...report.models[0], photos: photos(appearance, measures) }] };
   const photoPages = buildReportPages(additional).filter(page => page.kind === 'photos');
   assert.equal(photoPages[0].appearance.length, 3);
@@ -85,6 +85,51 @@ assert(escaped.includes('&lt;script&gt;bad&lt;/script&gt;'));
 const manyModels = { ...report, models: Array.from({ length: 10 }, (_, index) => ({ ...report.models[0], id: String(index) })) };
 assert.equal(buildReportPages(manyModels).filter(page => page.kind === 'summary').length, 2);
 console.log('PASS: fecha local, lotes y modelos, 2 etiquetas, 3+6 fotos, extras, edición aislada, logo, escape HTML y resumen paginado.');
+
+// Cada foto se identifica en el HTML exactamente una vez, incluso con dos lotes y extras.
+const regression = { ...report, models: [{ ...report.models[0], photos: photos(5, 10) }, { ...second, photos: photos(3, 6, 'second') }] };
+const regressionHtml = buildPhotoReportHtml(regression);
+for (const model of regression.models) {
+  for (const photo of model.photos) {
+    assert.equal(regressionHtml.split(`data-photo-id="${photo.id}"`).length - 1, 1);
+  }
+}
+const continuation = regressionHtml.split('<section class="page">').find(page => page.includes('APARIENCIA GENERAL Y MEDIDAS - CONTINUACIÓN'));
+assert(!continuation.includes('Imagen no ingresada'));
+assert(continuation.includes('<figcaption>APARIENCIA 4</figcaption>'));
+assert(continuation.includes('<figcaption>MEDIDA 10</figcaption>'));
+// Los títulos mantienen la categoría sin añadir la numeración interna de las fotos.
+assert(!/ · FOTO \d+/.test(regressionHtml));
+assert(regressionHtml.includes('<figcaption>FOTO DE LA ETIQUETA DE LA CAJA</figcaption>'));
+assert(regressionHtml.includes('<figcaption>FOTO DE LA ETIQUETA DEL COLCHÓN</figcaption>'));
+
+/** Verifica que la preparación es secuencial y nunca omite una foto ilegible. */
+async function checkPreparation() {
+  const { prepareReportForPrint } = load('prepare-report');
+  let active = 0;
+  let peak = 0;
+  const progress = [];
+  const prepared = await prepareReportForPrint(regression, async photo => {
+    active++;
+    peak = Math.max(peak, active);
+    await Promise.resolve();
+    active--;
+    return `prepared-${photo.id}`;
+  }, (completed, total) => progress.push([completed, total]));
+  assert.equal(peak, 1);
+  assert.equal(progress.length, 28);
+  assert.deepEqual(progress.at(-1), [28, 28]);
+  assert.equal(prepared.models[0].photos.length, 17);
+  assert.equal(prepared.models[1].photos.length, 11);
+  assert.equal(regression.models[0].photos[0].base64, 'test');
+  await assert.rejects(prepareReportForPrint(regression, async photo => {
+    if (photo.number === 16) throw new Error('decode failed');
+    return 'valid-image';
+  }), /foto 16 de MODELO 1.*LOTE 1/);
+  await assert.rejects(prepareReportForPrint(regression, async () => ''), /foto 1/);
+  console.log('PASS: preparación secuencial de 28 fotos, originales intactos y errores sin exportación parcial.');
+}
+checkPreparation().catch(error => { console.error(error); process.exitCode = 1; });
 
 // La opción de vista previa genera solo HTML de prueba para verificar visualmente la plantilla.
 if (process.argv[2]) {
