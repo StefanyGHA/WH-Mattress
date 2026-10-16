@@ -99,8 +99,10 @@ El proyecto utiliza **Expo SDK 57**, **React 19.2** y **React Native 0.86**. Las
 | `expo`, `react`, `react-native` | Base de la aplicación móvil. |
 | `expo-router`, `@react-navigation/*` | Navegación entre creación, vista previa y edición. |
 | `expo-image-picker` | Tomar fotografías o seleccionarlas de la galería. |
+| `expo-document-picker` | Importar imágenes desde Documentos y otros proveedores de archivos. |
 | `expo-image-manipulator` | Preparar las imágenes como JPEG y limitar su tamaño para la impresión. |
-| `expo-print` | Generar el PDF en dispositivos móviles. |
+| `expo-print` | Generar cada página del PDF en dispositivos móviles. |
+| `pdf-lib`, `expo-file-system` | Unir las páginas en un único archivo y manejar los temporales de exportación. |
 | `expo-sharing` | Compartir el archivo generado. |
 | `expo-image`, `expo-font`, `@expo/vector-icons`, `expo-symbols` | Imágenes, fuentes e iconos. |
 | `react-native-gesture-handler`, `react-native-reanimated`, `react-native-worklets` | Soporte de gestos y animaciones del proyecto. |
@@ -114,10 +116,12 @@ El proyecto utiliza **Expo SDK 57**, **React 19.2** y **React Native 0.86**. Las
 Ya están declaradas en el repositorio y se instalan con `npm ci`. Si necesitas agregarlas manualmente a una copia que no las tenga, ejecuta:
 
 ```bash
-npx expo install expo-image-picker expo-image-manipulator expo-print expo-sharing --npm
+npx expo install expo-image-picker expo-image-manipulator expo-document-picker expo-file-system expo-print expo-sharing --npm
+npm pkg set "overrides.pdf-lib.tslib=2.8.1"
+npm install pdf-lib
 ```
 
-La dependencia incorporada para preparar las fotos del PDF es **`expo-image-manipulator ~57.0.21`**. Para agregar únicamente esa dependencia:
+Para preparar las fotos del PDF se utiliza **`expo-image-manipulator ~57.0.21`**. Para agregar únicamente esa dependencia:
 
 ```bash
 npx expo install expo-image-manipulator --npm
@@ -143,28 +147,57 @@ Si utilizas una compilación nativa propia y los cambios incluyen módulos nativ
 
 ## Cómo crear un reporte
 
-1. La fecha se toma del dispositivo al crear el reporte; no se solicita al usuario.
-2. Ingresa el lote principal y el modelo del colchón. El primer modelo pertenece al lote principal.
-3. Toma o selecciona una foto de la etiqueta de la caja y después una de la etiqueta del colchón.
-4. Registra las fotografías de **Overall Appearance** y **Measures**. Por defecto son 3 de apariencia y 6 de medidas; puedes aumentar la cantidad por categoría.
-5. Indica si deseas agregar otro lote. Si aceptas, se repite el registro de lote, modelo y fotografías.
-6. Revisa el informe y usa **Editar informe** para cambiar los datos o mover fotografías entre categorías, arrastrándolas o usando **Mover a**.
-7. Guarda los cambios y pulsa **Generar y compartir PDF**.
+1. La fecha se obtiene automáticamente del dispositivo.
+2. Escribe el único lote del reporte en el formulario inicial.
+3. Completa el cuadro **MODELS / QUANTITIES** con el nombre de cada modelo y su cantidad de unidades. Usa **Agregar fila** o la × de una fila para eliminarla. Si tiene fotos, se solicita confirmación antes de borrar.
+4. La aplicación calcula el 5 % por modelo, redondeando hacia arriba y con mínimo un colchón para cantidades positivas. Por ejemplo: 100 unidades → 5 colchones de muestra → 45 fotos de apariencia/medidas; 267 unidades → 14 colchones. El cuadro también muestra el total general de unidades.
+5. Pulsa **Continuar**. Se piden las dos etiquetas una vez por modelo: primero la de la caja y después la del colchón.
+6. Para cada colchón de muestra se solicitan 3 fotografías de **Overall Appearance** y 6 de **Measures**. Se puede tomar la foto, elegirla de la galería o importarla con **Archivos**. También se pueden agregar fotos adicionales antes de continuar.
+7. La flecha del encabezado y **Retroceder** vuelven al paso anterior conservando las fotografías. **Editar cuadro inicial** permite regresar a la tabla para corregir modelos o cantidades.
+8. Al terminar el último modelo se abre el informe. En **Editar informe** puedes corregir el cuadro, elegir el modelo y la muestra, arrastrar fotos entre categorías, agregar fotos faltantes o usar **Reemplazar** si una imagen es incorrecta o ilegible.
+9. Guarda los cambios y pulsa **Generar y compartir PDF**. Si faltan etiquetas o no se alcanzan las nueve fotos de una muestra, se indica qué debes completar.
 
-El reporte y las fotografías se mantienen en memoria durante la sesión. Actualmente no hay almacenamiento persistente: cerrar o recargar la aplicación puede perder el reporte en curso.
+El editor respeta la reclasificación manual: exige nueve fotografías de apariencia/medidas por muestra en total; la distribución guiada inicial es 3 + 6. Los cambios de cantidad o de categoría no borran automáticamente fotografías existentes. Las filas eliminadas con fotos sí requieren confirmación.
+
+**Cancelar informe** funciona en web y en celular mediante un diálogo propio. Al confirmar se limpia el reporte y se vuelve al cuadro inicial. El reporte se mantiene en memoria durante la sesión: cerrar o recargar la aplicación puede perder los datos; todavía no hay almacenamiento persistente.
 
 ## Formato del PDF
 
-- Resumen general con fecha, lote principal y tabla de modelos.
-- Una página con las dos etiquetas de cada modelo.
-- Una página con 3 fotos de apariencia y 6 de medidas por modelo.
-- Páginas adicionales para las fotos que excedan esos espacios, conservando su categoría y lote.
-- Logo de la empresa en cada página.
-- Títulos como **APARIENCIA 1** y **MEDIDA 1**, sin añadir “FOTO 1”, “FOTO 2”, etc. Los títulos de las etiquetas conservan su descripción completa.
+- Resumen inicial con fecha, lote, tabla **MODELS / QUANTITIES** y **TOTAL GENERAL**.
+- El lote se muestra una sola vez al principio del PDF.
+- Dos etiquetas juntas en una página por modelo.
+- Una página con 3 apariencias y 6 medidas por cada colchón de la muestra. Un modelo con 100 unidades produce cinco páginas de fotos (45 imágenes), además de su página de etiquetas.
+- Cada página de fotos identifica el modelo y el número de muestra.
+- Las imágenes adicionales de una categoría pasan a páginas de continuación de la misma muestra.
+- Logo en cada página y títulos como **APARIENCIA 1** o **MEDIDA 1**, sin numeración adicional “FOTO …”.
 
-Las fotografías se preparan una por una para limitar el uso de memoria al imprimir. Se convierten a JPEG y se limita el lado mayor a 1600 px, o 1000 px en medidas, conservando sus proporciones y las imágenes originales del reporte. Si una foto no puede prepararse, la exportación se detiene e indica su número, modelo y lote.
+Las imágenes se leen y se guardan como JPEG en memoria al importarlas; esta copia se utiliza en la vista previa y al exportar, para que una ruta temporal eliminada no deje la fotografía en blanco. Se conserva la proporción y se limita el lado mayor a 1600 px (1000 px en medidas). Un JPEG ya preparado se reutiliza al exportar.
 
-En web se espera a que las imágenes estén decodificadas antes de imprimir el documento completo.
+En celulares se imprime una página a la vez y se unen todas mediante `pdf-lib`. Se comprueba la cantidad de páginas y se eliminan los archivos temporales creados por esa exportación. Esto limita el número de imágenes cargadas simultáneamente en el motor de impresión. La previsualización también usa filas virtualizadas para cargar solo las imágenes cercanas a la pantalla. En web se imprime el documento completo después de decodificar las imágenes.
+
+Si una imagen no puede prepararse, se muestra el número y el modelo. Usa **Editar o reemplazar fotografías** para corregirla y volver a exportar.
+
+## Dependencias añadidas para los cambios del cliente
+
+Después de actualizar el repositorio basta con ejecutar:
+
+```bash
+npm ci
+npx expo start -c
+```
+
+Si estás aplicando los cambios manualmente a una copia anterior:
+
+```bash
+npx expo install expo-document-picker expo-file-system --npm
+npm pkg set "overrides.pdf-lib.tslib=2.8.1"
+npm install pdf-lib
+npx expo start -c
+```
+
+El archivo `package.json` incluye un ajuste de compatibilidad de `tslib` para `pdf-lib`; conserva ese ajuste al instalar con npm.
+
+La preparación de imágenes continúa usando `expo-image-manipulator`, ya incluido en el proyecto. Si utilizas una compilación nativa propia, reconstruye la aplicación después de incorporar los módulos nativos nuevos.
 
 ## Logo de la empresa
 
@@ -188,7 +221,7 @@ npx tsc --noEmit
 npm run lint
 ```
 
-Las pruebas comprueban la fecha local, la separación de lotes y modelos, la distribución de las fotos, las páginas adicionales, la preparación secuencial de las imágenes y los títulos del PDF.
+Las pruebas comprueban la fecha local, el muestreo del 5 %, la tabla y el total, el lote único, las fotografías por muestra, el retroceso, la copia de imágenes en memoria, la preparación secuencial y la unión paginada del PDF. También verifican la limpieza de temporales y que no se comparta un documento parcial.
 
 Para comprobar que la aplicación se empaqueta para cada plataforma:
 

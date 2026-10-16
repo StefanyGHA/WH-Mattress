@@ -4,10 +4,15 @@ import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 interface HeaderProps {
   showBackButton?: boolean;
+  /** Permite retroceder dentro del asistente sin abandonar el reporte. */
+  onBack?: () => void;
+  backDisabled?: boolean;
 }
 
 export default function Header({
   showBackButton = false,
+  onBack,
+  backDisabled = false,
 }: HeaderProps) {
   const router = useRouter();
   
@@ -16,7 +21,9 @@ export default function Header({
       {showBackButton && (
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => router.back()}
+          accessibilityLabel="Retroceder"
+          disabled={backDisabled}
+          onPress={() => onBack ? onBack() : router.canGoBack() ? router.back() : router.replace("/")}
         >
           <Ionicons
             name="arrow-back"

@@ -1,57 +1,68 @@
 import Header from '@/components/Header';
+import ReportSummaryTable from '@/components/ReportSummaryTable';
+import CancelReportButton from '@/components/CancelReportButton';
 import { reportStyles as s } from '@/components/report-styles';
 import { useReport } from '@/contexts/report';
-import { PHOTO_CATEGORIES, type ReportPhoto } from '@/utils/report-photos';
+import { PHOTO_CATEGORIES, missingReportPhotos, modelSampleCount, photoSourceUri, validateReportTable, type ReportPhoto } from '@/utils/report-photos';
 import { buildPhotoReportHtml } from '@/utils/report-html';
 import { prepareReportForPrint } from '@/utils/prepare-report';
 import { preparePrintPhoto } from '@/utils/prepare-report-images';
 import { printReportHtml } from '@/utils/print-report';
-import * as Print from 'expo-print';
+import { exportReportPdf } from '@/utils/export-report';
 import * as Sharing from 'expo-sharing';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Alert, Image, Platform, SafeAreaView, ScrollView, Text, TouchableOpacity, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Alert, Image, Platform, SafeAreaView, SectionList, Text, TouchableOpacity, View } from 'react-native';
 
 /** Conserva las miniaturas y los estilos existentes de la vista previa. */
 function PhotoPanel({ photo }: { photo: ReportPhoto }) {
-  return <View style={s.photoCard}><Text style={[s.caption, { backgroundColor: '#315E78', color: '#FFFFFF' }]}>Foto {photo.number}</Text><Image source={{ uri: photo.uri }} style={s.photo} resizeMode="contain" /></View>;
+  return <View style={s.photoCard}><Text style={[s.caption, { backgroundColor: '#315E78', color: '#FFFFFF' }]}>Foto {photo.number}{photo.category === 'appearance' || photo.category === 'measures' ? ` · Muestra ${photo.sampleNumber ?? 1}` : ''}</Text><Image source={{ uri: photoSourceUri(photo) }} style={s.photo} resizeMode="contain" /></View>;
 }
 
 /** Presenta todos los modelos del reporte y permite editarlo o compartir su PDF. */
 export default function ReportScreen() {
   const router = useRouter();
-  const { report, setReport } = useReport();
+  const { report } = useReport();
   const [busy, setBusy] = useState(false);
   // Permite ver el avance cuando el reporte contiene muchas fotografías.
   const [progress, setProgress] = useState('');
+  const [error, setError] = useState('');
   const photos = report?.models.flatMap(model => model.photos) ?? [];
+
+  // Las filas virtualizadas limitan las imágenes montadas al revisar muestras grandes.
+  const sections = useMemo(() => report?.models.flatMap(model => PHOTO_CATEGORIES.flatMap(category => {
+    const samples = category.id === 'box' || category.id === 'mattress' ? [0] : Array.from(new Set([1, ...model.photos.filter(photo => photo.category === category.id).map(photo => photo.sampleNumber ?? 1)])).sort((a, b) => a - b);
+    return samples.map(sample => {
+      const group = model.photos.filter(photo => photo.category === category.id && (!sample || (photo.sampleNumber ?? 1) === sample)).sort((a, b) => a.number - b.number);
+      return { key: `${model.id}-${category.id}-${sample}`, title: `${model.name} · ${category.title}${sample ? ` · MUESTRA ${sample}` : ''}`, data: group.length ? Array.from({ length: Math.ceil(group.length / 2) }, (_, index) => group.slice(index * 2, index * 2 + 2)) : [[]] };
+    });
+  })) ?? [], [report]);
 
   /** Exporta la fecha de creación y todas las páginas, incluido el resumen de Python. */
   const generate = async () => {
     if (busy || !report?.models.length) return;
-    setBusy(true);
+    const invalid = validateReportTable(report) ?? missingReportPhotos(report);
+    if (invalid) { setError(invalid); return; }
+    setError(''); setBusy(true);
     try {
       setProgress('Preparando fotografías…');
       const prepared = await prepareReportForPrint(report, preparePrintPhoto, (completed, total) => setProgress(`Preparando fotos ${completed}/${total}…`));
-      const html = buildPhotoReportHtml(prepared);
       setProgress('Generando PDF…');
       // En web se usa la impresión del navegador; en celular se genera un archivo compartible.
-      if (Platform.OS === 'web') { await printReportHtml(html); return; }
-      const result = await Print.printToFileAsync({ html, width: 792, height: 612, margins: { top: 0, right: 0, bottom: 0, left: 0 } });
+      if (Platform.OS === 'web') { await printReportHtml(buildPhotoReportHtml(prepared)); return; }
+      const result = await exportReportPdf(prepared, (completed, total) => setProgress(`Generando página ${completed}/${total}…`));
       if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(result.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle: 'Compartir informe WH Mattress' });
       else Alert.alert('PDF generado', `Guardado en: ${result.uri}`);
     } catch (error) {
-      Alert.alert('No se pudo generar el PDF', error instanceof Error ? error.message : 'Intenta nuevamente.');
+      setError(error instanceof Error ? error.message : 'No se pudo generar el PDF. Intenta nuevamente.');
     } finally { setBusy(false); }
   };
 
-  /** Cancela el reporte completo, incluyendo sus modelos y lotes adicionales. */
-  const cancel = () => Alert.alert('Cancelar informe', '¿Deseas eliminar todos los datos y fotografías del informe actual?', [
-    { text: 'No', style: 'cancel' },
-    { text: 'Sí, cancelar', style: 'destructive', onPress: () => { setReport(null); router.dismissAll(); router.replace('/'); } },
-  ]);
-
-  return <SafeAreaView style={s.screen}><Header showBackButton /><ScrollView contentContainerStyle={s.content}>
+  return <SafeAreaView style={s.screen}><Header showBackButton backDisabled={busy} /><SectionList style={{ flex: 1 }} sections={sections} contentContainerStyle={s.content} stickySectionHeadersEnabled={false} initialNumToRender={6} maxToRenderPerBatch={6} windowSize={5}
+    keyExtractor={(row, index) => row.map(photo => photo.id).join('-') || `empty-${index}`}
+    renderSectionHeader={({ section }) => <Text style={[s.category, { marginTop: 16 }]}>{section.title}</Text>}
+    renderItem={({ item }) => <View style={s.grid}>{item.length ? item.map(photo => <PhotoPanel key={photo.id} photo={photo} />) : <Text style={s.text}>Sin fotografías</Text>}</View>}
+    ListHeaderComponent={<View style={{ gap: 16 }}>
     <TouchableOpacity disabled={busy || !report?.models.length} style={s.button} onPress={() => router.push('/edit-report')}><Text style={s.buttonText}>Editar informe · organizar fotos</Text></TouchableOpacity>
     <Text style={s.title}>Vista previa del informe</Text>
     <Text style={s.text}>{photos.length} fotografías · {report?.date}</Text>
@@ -63,24 +74,16 @@ export default function ReportScreen() {
       <Text style={s.category}>RESUMEN GENERAL</Text>
       <Text style={s.text}>Fecha del reporte: {report?.date}</Text>
       <Text style={s.text}>Lote principal: {report?.principalLot}</Text>
-      {report?.models.map((model, index) => <Text key={model.id} style={s.text}>{index + 1}. {model.name} · {model.lot}</Text>)}
+      {report && <ReportSummaryTable report={report} />}
+      {report?.models.map(model => <Text key={model.id} style={s.text}>{model.name}: muestra de {modelSampleCount(model)} colchones · {modelSampleCount(model) * 9} fotos + 2 etiquetas</Text>)}
       <Text style={s.text}>Total de modelos registrados: {report?.models.length ?? 0}</Text>
     </View>
 
-    {/* Cada modelo mantiene sus dos etiquetas juntas y sus nueve fotos en otra página. */}
-    {report?.models.map(model => <View key={model.id} style={{ gap: 16 }}>
-      <Text style={s.category}>{model.name} · {model.lot}</Text>
-      {[{ title: 'ETIQUETAS DEL MODELO', categories: PHOTO_CATEGORIES.slice(0, 2) }, { title: 'APARIENCIA GENERAL Y MEDIDAS', categories: PHOTO_CATEGORIES.slice(2) }].map(section => <View key={section.title} style={s.card}>
-        <Text style={s.category}>{section.title}</Text>
-        {section.categories.map(category => <View key={category.id} style={{ gap: 8 }}>
-          <Text style={s.category}>{category.title}</Text>
-          <View style={s.grid}>{model.photos.filter(photo => photo.category === category.id).map(photo => <PhotoPanel key={photo.id} photo={photo} />)}</View>
-          {!model.photos.some(photo => photo.category === category.id) && <Text style={s.text}>Sin fotografías</Text>}
-        </View>)}
-      </View>)}
-    </View>)}
-    <Text style={s.text}>En el PDF, las 3 fotos de apariencia y las 6 de medidas comparten página. Los extras van en páginas adicionales del mismo modelo.</Text>
+    </View>}
+    ListFooterComponent={<View style={{ gap: 16 }}>
+    <Text style={s.text}>En el PDF, las 3 fotos de apariencia y las 6 de medidas comparten página. Cada colchón de la muestra tiene su propia página. Las fotos adicionales se conservan.</Text>
     <TouchableOpacity disabled={busy || !report?.models.length} style={[s.button, (busy || !report?.models.length) && s.disabled]} onPress={generate}><Text style={s.buttonText}>{busy ? progress : 'Generar y compartir PDF'}</Text></TouchableOpacity>
-    <TouchableOpacity disabled={busy} onPress={cancel}><Text style={{ textAlign: 'center', padding: 15, color: '#DC2626', fontWeight: '600' }}>Cancelar informe</Text></TouchableOpacity>
-  </ScrollView></SafeAreaView>;
+    {!!error && <View style={s.card}><Text accessibilityRole="alert" style={{ color: '#DC2626' }}>{error}</Text><TouchableOpacity onPress={() => router.push('/edit-report')}><Text style={s.category}>Editar o reemplazar fotografías</Text></TouchableOpacity><TouchableOpacity onPress={() => router.dismissTo('/')}><Text style={s.category}>Volver a la captura</Text></TouchableOpacity></View>}
+    <CancelReportButton disabled={busy} />
+  </View>} /></SafeAreaView>;
 }

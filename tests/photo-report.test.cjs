@@ -16,7 +16,7 @@ function load(name, dependencies = {}) {
 }
 const photoUtils = load('report-photos');
 const logo = load('report-logo');
-const { buildPhotoReportHtml, buildReportPages } = load('report-html', { './report-logo': logo });
+const { buildPhotoReportHtml, buildReportPages } = load('report-html', { './report-logo': logo, './report-photos': photoUtils });
 
 /** Crea fotos de prueba con los números estables de un modelo. */
 function photos(appearance = 3, measures = 6, prefix = 'first') {
@@ -75,13 +75,15 @@ assert.equal((html.match(/class="logo"/g) ?? []).length, 6);
 assert.equal((html.match(/class="photo"/g) ?? []).length, 24);
 assert.equal((html.match(/class="page"/g) ?? []).length, 6);
 assert(html.includes('RESUMEN GENERAL'));
-assert(html.includes('LOTE 10'));
+// El lote se imprime solo en el primer resumen, no en los detalles del modelo.
+assert(!html.includes('LOTE 10'));
+assert.equal(html.split('LOTE 1').length - 1, 1);
 assert(html.includes('MODELO 2'));
 const escaped = buildPhotoReportHtml({ ...report, models: [{ ...report.models[0], name: '<script>bad</script>' }] });
 assert(!escaped.includes('<script>bad</script>'));
 assert(escaped.includes('&lt;script&gt;bad&lt;/script&gt;'));
 
-// Nueve modelos por resumen, como en la paginación del script Python.
+// Ocho filas por resumen dejan espacio para el total general.
 const manyModels = { ...report, models: Array.from({ length: 10 }, (_, index) => ({ ...report.models[0], id: String(index) })) };
 assert.equal(buildReportPages(manyModels).filter(page => page.kind === 'summary').length, 2);
 console.log('PASS: fecha local, lotes y modelos, 2 etiquetas, 3+6 fotos, extras, edición aislada, logo, escape HTML y resumen paginado.');
@@ -130,6 +132,97 @@ async function checkPreparation() {
   console.log('PASS: preparación secuencial de 28 fotos, originales intactos y errores sin exportación parcial.');
 }
 checkPreparation().catch(error => { console.error(error); process.exitCode = 1; });
+
+// La muestra se calcula por fila: 100 unidades → 5 colchones → 45 fotos, más etiquetas.
+assert.equal(photoUtils.sampleCount(100), 5);
+assert.equal(photoUtils.sampleCount(267), 14);
+assert.equal(photoUtils.sampleCount(1), 1);
+assert.equal(photoUtils.sampleCount(0), 0);
+assert.equal(photoUtils.sampleCount(2.5), 0);
+assert.equal(photoUtils.sampleCount(-1), 0);
+const sampledPhotos = photos().slice(0, 2);
+for (let sample = 1; sample <= 5; sample++) {
+  sampledPhotos.push(...photos(3, 6, `sample-${sample}`).slice(2).map(photo => ({ ...photo, sampleNumber: sample })));
+}
+const sampled = { ...report, models: [{ ...report.models[0], quantity: 100, photos: sampledPhotos }] };
+assert.equal(photoUtils.missingReportPhotos(sampled), null);
+const sampledPages = buildReportPages(sampled);
+assert.equal(sampledPages.length, 7);
+assert.deepEqual(sampledPages.filter(page => page.kind === 'photos').map(page => [page.sampleNumber, page.appearance.length, page.measures.length]), [[1,3,6],[2,3,6],[3,3,6],[4,3,6],[5,3,6]]);
+const sampledHtml = buildPhotoReportHtml(sampled);
+assert.equal((sampledHtml.match(/class="photo"/g) ?? []).length, 47);
+assert(sampledHtml.includes('<th>MODELS</th><th>QUANTITIES</th>'));
+assert(sampledHtml.includes('<th>TOTAL GENERAL</th><th>100</th>'));
+assert.equal(sampledHtml.split('LOTE 1').length - 1, 1);
+assert.equal(photoUtils.validateReportTable(sampled), null);
+assert(photoUtils.validateReportTable({ ...sampled, models: [] }));
+assert(photoUtils.validateReportTable({ ...sampled, models: [{ ...sampled.models[0], quantity: 0 }] }));
+assert(photoUtils.missingReportPhotos({ ...sampled, models: [{ ...sampled.models[0], photos: sampledPhotos.filter(photo => photo.sampleNumber !== 5) }] }).includes('muestra 5'));
+// La imagen guardada sigue siendo visible aunque desaparezca el archivo temporal.
+assert.equal(photoUtils.photoSourceUri({ uri: 'file:///missing.jpg', base64: '/9j/backup' }), 'data:image/jpeg;base64,/9j/backup');
+assert.equal(photoUtils.photoSourceUri({ uri: 'file:///missing.png', base64: 'iVBORbackup' }), 'data:image/png;base64,iVBORbackup');
+const flow = load('capture-flow', { './report-photos': photoUtils });
+const steps = [
+  { modelId: 'first', sample: 1, category: 'box' },
+  { modelId: 'first', sample: 1, category: 'mattress' },
+  ...Array.from({ length: 5 }, (_, index) => ['appearance', 'measures'].map(category => ({ modelId: 'first', sample: index + 1, category }))).flat(),
+];
+assert.equal(photoUtils.movePhoto(sampledPhotos, sampledPhotos[0].id, 'appearance', 3)[0].sampleNumber, 3);
+assert.equal(steps.length, 12);
+for (let i = 1; i < steps.length; i++) assert.deepEqual(flow.adjacentCaptureStep(sampled, steps[i], -1), steps[i-1]);
+assert.equal(flow.adjacentCaptureStep(sampled, steps[0], -1), null);
+assert.equal(flow.adjacentCaptureStep(sampled, steps.at(-1), 1), null);
+// El retroceso también cruza modelos conservando la última muestra del anterior.
+const twoSampled = { ...sampled, models: [...sampled.models, { ...second, quantity: 20 }] };
+assert.deepEqual(flow.adjacentCaptureStep(twoSampled, { modelId: second.id, sample: 1, category: 'box' }, -1), steps.at(-1));
+console.log('PASS: muestra 5 %, 47 fotos, 7 páginas, tabla y total, lote único, copia recuperable y retroceso en todos los pasos.');
+
+/** Comprueba la exportación por páginas con unión real de PDF y limpieza de temporales. */
+async function checkPageExport() {
+  const { PDFDocument } = require('pdf-lib');
+  const files = new Map();
+  const printed = [];
+  let extraPage = false;
+  class MemoryFile {
+    constructor(...parts) { this.uri = parts.join('/'); }
+    get exists() { return files.has(this.uri); }
+    create() { files.set(this.uri, new Uint8Array()); }
+    write(bytes) { files.set(this.uri, bytes); }
+    async bytes() { return files.get(this.uri); }
+    delete() { files.delete(this.uri); }
+  }
+  const print = {
+    async printToFileAsync({ html }) {
+      printed.push(html);
+      const pdf = await PDFDocument.create();
+      pdf.addPage([792, 612]);
+      if (extraPage) pdf.addPage([792, 612]);
+      const uri = `temporary-${printed.length}`;
+      files.set(uri, await pdf.save());
+      return { uri };
+    },
+  };
+  const { exportReportPdf } = load('export-report', {
+    'expo-print': print,
+    'expo-file-system': { File: MemoryFile, Paths: { cache: 'cache' } },
+    './report-html': { buildReportPages, buildPhotoReportHtml },
+  });
+  const result = await exportReportPdf(sampled);
+  const final = await PDFDocument.load(files.get(result.uri));
+  assert.equal(final.getPageCount(), 7);
+  assert.equal(files.size, 1);
+  assert.deepEqual(printed.map(html => (html.match(/class="photo"/g) ?? []).length), [0,2,9,9,9,9,9]);
+  printed.forEach((html, index) => {
+    assert.equal((html.match(/class="page"/g) ?? []).length, 1);
+    assert(html.includes(`Página ${index + 1}</span>`));
+  });
+  files.clear();
+  extraPage = true;
+  await assert.rejects(exportReportPdf(sampled), /página 1/);
+  assert.equal(files.size, 0);
+  console.log('PASS: unión de 7 páginas, numeración continua, 47 fotos planificadas y rechazo de exportaciones parciales.');
+}
+checkPageExport().catch(error => { console.error(error); process.exitCode = 1; });
 
 // La opción de vista previa genera solo HTML de prueba para verificar visualmente la plantilla.
 if (process.argv[2]) {
