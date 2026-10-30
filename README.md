@@ -6,7 +6,7 @@ Aplicación móvil en React Native y Expo para crear reportes de producción de 
 
 - **Git** para clonar el repositorio.
 - **Node.js 22.x, desde 22.13.0**, con npm. También es compatible con Node.js 24.x desde 24.3.0, según los requisitos de React Native instalado.
-- **Expo Go compatible con Expo SDK 57** para probar la aplicación en un celular, o una compilación de desarrollo propia.
+- **Expo Go compatible con Expo SDK 58** para probar la aplicación en un celular, o una compilación de desarrollo propia.
 - Para usar un emulador Android o compilar Android localmente: Android Studio y su SDK configurados.
 - Para usar el simulador o compilar iOS localmente: una Mac con Xcode configurado.
 
@@ -92,7 +92,7 @@ Si agregas o actualizas una dependencia nativa, reconstruye esa compilación; re
 
 ## Dependencias del proyecto
 
-El proyecto utiliza **Expo SDK 57**, **React 19.2** y **React Native 0.86**. Las versiones completas y sus rangos están en `package.json`; `package-lock.json` registra la instalación reproducible.
+El proyecto utiliza **Expo SDK 58**, **React 19.3** y **React Native 0.88**. Las versiones completas y sus rangos están en `package.json`; `package-lock.json` registra la instalación reproducible.
 
 | Dependencia | Uso |
 | --- | --- |
@@ -121,7 +121,7 @@ npm pkg set "overrides.pdf-lib.tslib=2.8.1"
 npm install pdf-lib
 ```
 
-Para preparar las fotos del PDF se utiliza **`expo-image-manipulator ~57.0.21`**. Para agregar únicamente esa dependencia:
+Para preparar las fotos del PDF se utiliza **`expo-image-manipulator ~58.0.16`**. Para agregar únicamente esa dependencia:
 
 ```bash
 npx expo install expo-image-manipulator --npm
@@ -163,13 +163,15 @@ El editor respeta la reclasificación manual: exige nueve fotografías de aparie
 
 ## Formato del PDF
 
-- Resumen inicial con fecha, lote, tabla **MODELS / QUANTITIES** y **TOTAL GENERAL**.
+- Resumen inicial con fecha, lote, tabla **MODELS / QUANTITIES** y **GRAND TOTAL**.
 - El lote se muestra una sola vez al principio del PDF.
 - Dos etiquetas juntas en una página por modelo.
-- Una página con 3 apariencias y 6 medidas por cada colchón de la muestra. Un modelo con 100 unidades produce cinco páginas de fotos (45 imágenes), además de su página de etiquetas.
+- Una página con 3 fotos horizontales de **Overall Appearance**, una debajo de otra a la izquierda, y 6 fotos verticales de **Measures** en dos columnas a la derecha por cada colchón de la muestra. Un modelo con 100 unidades produce cinco páginas de fotos (45 imágenes), además de su página de etiquetas.
 - Cada página de fotos identifica el modelo y el número de muestra.
 - Las imágenes adicionales de una categoría pasan a páginas de continuación de la misma muestra.
-- Logo en cada página y títulos como **APARIENCIA 1** o **MEDIDA 1**, sin numeración adicional “FOTO …”.
+- Logo en cada página. Todas las fotografías, incluidas las etiquetas, se imprimen sin nombres ni números individuales.
+- Los textos de la plantilla del PDF están en inglés y el campo del modelo dice **MODELS**. Los nombres y lotes escritos por el usuario se conservan tal como se ingresaron.
+- Marcos con proporción aproximada de 900 × 506 px para apariencia y 506 × 900 px para medidas. Se muestra la imagen completa, sin deformarla ni recortarla.
 
 Las imágenes se leen y se guardan como JPEG en memoria al importarlas; esta copia se utiliza en la vista previa y al exportar, para que una ruta temporal eliminada no deje la fotografía en blanco. Se conserva la proporción y se limita el lado mayor a 1600 px (1000 px en medidas). Un JPEG ya preparado se reutiliza al exportar.
 
@@ -231,3 +233,70 @@ npx expo export --platform web
 ```
 
 Estas exportaciones generan los recursos de la aplicación; no producen un APK instalable. La captura, el uso de permisos y la impresión nativa deben probarse en un dispositivo real.
+
+## Compatibilidad con Expo Go y SDK 58
+
+Este proyecto utiliza SDK 58 para abrirse con Expo Go compatible con esa versión. Después de recibir los archivos actualizados del proyecto, reinstala las dependencias desde el archivo de bloqueo y reinicia Metro:
+
+```bash
+npm ci
+npx expo start -c
+```
+
+### Dependencias actualizadas durante la migración a SDK 58
+
+Para esta migración **se actualizaron dependencias existentes; no se añadieron paquetes nuevos como dependencias directas**. npm también actualizó sus dependencias internas en `package-lock.json`. Las dependencias de fotografías y PDF ya estaban incorporadas antes de esta migración.
+
+Esta es la lista de versiones declaradas que cambiaron:
+
+| Paquete | Antes (SDK 57) | Ahora (SDK 58) |
+| --- | --- | --- |
+| `expo` | `~57.0.27` | `~58.0.21` |
+| `expo-constants` | `~57.0.20` | `~58.0.14` |
+| `expo-document-picker` | `~57.0.3` | `~58.0.4` |
+| `expo-file-system` | `~57.0.7` | `~58.0.13` |
+| `expo-font` | `~57.0.4` | `~58.0.11` |
+| `expo-haptics` | `~57.0.3` | `~58.0.7` |
+| `expo-image` | `~57.0.5` | `~58.0.18` |
+| `expo-image-manipulator` | `~57.0.21` | `~58.0.16` |
+| `expo-image-picker` | `~57.0.20` | `~58.0.10` |
+| `expo-linking` | `~57.0.12` | `~58.0.15` |
+| `expo-print` | `~57.0.2` | `~58.0.8` |
+| `expo-router` | `~57.0.25` | `~58.0.28` |
+| `expo-sharing` | `~57.0.22` | `~58.0.21` |
+| `expo-splash-screen` | `~57.0.9` | `~58.0.12` |
+| `expo-status-bar` | `~57.0.1` | `~58.0.4` |
+| `expo-symbols` | `~57.0.3` | `~58.0.4` |
+| `expo-system-ui` | `~57.0.4` | `~58.0.7` |
+| `expo-web-browser` | `~57.0.3` | `~58.0.7` |
+| `react` | `19.2.3` | `19.3.0` |
+| `react-dom` | `19.2.3` | `19.3.0` |
+| `react-native` | `0.86.3` | `0.88.0` |
+| `react-native-gesture-handler` | `~2.32.0` | `~3.3.0` |
+| `react-native-reanimated` | `4.5.1` | `4.7.1` |
+| `react-native-safe-area-context` | `~5.7.0` | `~5.10.1` |
+| `react-native-screens` | `~4.26.0` | `~4.30.0` |
+| `react-native-web` | `~0.21.0` | `^0.21.4` |
+| `react-native-worklets` | `0.10.1` | `0.13.0` |
+| `@types/react` | `~19.2.4` | `~19.3.0` |
+| `eslint-config-expo` | `~57.0.2` | `~58.0.4` |
+
+Para instalar estas versiones en otra computadora, comparte tanto `package.json` como `package-lock.json` actualizados, o trae los cambios del repositorio, y ejecuta dentro del proyecto:
+
+```bash
+npm ci
+npx expo install --check
+npx expo start -c
+```
+
+No hace falta instalar cada paquete por separado ni usar `--force` o `--legacy-peer-deps`. `npm ci` reinstala las dependencias del proyecto según el archivo de bloqueo. No se instalaron herramientas globales para esta migración.
+
+Comprueba que las dependencias estén alineadas con el SDK:
+
+```bash
+npx expo install --check
+```
+
+Usa Node.js 22.x desde 22.13.0, 24.x desde 24.3.0 o una versión compatible desde 26. Una compilación nativa anterior debe reconstruirse después de cambiar de SDK.
+
+La migración adapta los tipos de referencias de React Native y espera la escritura asíncrona de `expo-file-system` antes de compartir el PDF. La configuración de Expo Router mantiene la salida web estática y la carga conjunta de rutas.

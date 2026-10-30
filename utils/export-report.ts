@@ -28,6 +28,7 @@ export async function exportReportPdf(report: ProductionReport, onProgress?: (pa
   if (merged.getPageCount() !== pages.length) throw new Error('El PDF quedó incompleto. Intenta nuevamente.');
   const output = new File(Paths.cache, `WH-${Date.now()}-${Math.random().toString(36).slice(2)}.pdf`);
   output.create();
-  output.write(await merged.save());
+  // SDK 58 escribe de forma asíncrona: espera el archivo completo antes de compartirlo.
+  await output.write(await merged.save());
   return { uri: output.uri };
 }

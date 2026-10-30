@@ -74,7 +74,7 @@ const html = buildPhotoReportHtml(multi);
 assert.equal((html.match(/class="logo"/g) ?? []).length, 6);
 assert.equal((html.match(/class="photo"/g) ?? []).length, 24);
 assert.equal((html.match(/class="page"/g) ?? []).length, 6);
-assert(html.includes('RESUMEN GENERAL'));
+assert(html.includes('GENERAL SUMMARY'));
 // El lote se imprime solo en el primer resumen, no en los detalles del modelo.
 assert(!html.includes('LOTE 10'));
 assert.equal(html.split('LOTE 1').length - 1, 1);
@@ -96,14 +96,27 @@ for (const model of regression.models) {
     assert.equal(regressionHtml.split(`data-photo-id="${photo.id}"`).length - 1, 1);
   }
 }
-const continuation = regressionHtml.split('<section class="page">').find(page => page.includes('APARIENCIA GENERAL Y MEDIDAS - CONTINUACIÓN'));
-assert(!continuation.includes('Imagen no ingresada'));
-assert(continuation.includes('<figcaption>APARIENCIA 4</figcaption>'));
-assert(continuation.includes('<figcaption>MEDIDA 10</figcaption>'));
-// Los títulos mantienen la categoría sin añadir la numeración interna de las fotos.
-assert(!/ · FOTO \d+/.test(regressionHtml));
-assert(regressionHtml.includes('<figcaption>FOTO DE LA ETIQUETA DE LA CAJA</figcaption>'));
-assert(regressionHtml.includes('<figcaption>FOTO DE LA ETIQUETA DEL COLCHÓN</figcaption>'));
+const continuation = regressionHtml.split('<section class="page">').find(page => page.includes('OVERALL APPEARANCE AND MEASURES - CONTINUED'));
+assert(!continuation.includes('Image not provided'));
+// Ninguna foto, incluidas las etiquetas y los extras, lleva nombres visibles.
+assert(!regressionHtml.includes('<figcaption>'));
+assert(!/alt="(?:Foto|Photo) /.test(regressionHtml));
+// Los textos de la plantilla están en inglés; los datos escritos por el usuario se conservan.
+for (const text of ['GENERAL SUMMARY', 'MATTRESS MODELS', 'MODELS · SAMPLE 1', 'REPORT DATE', 'MAIN LOT', 'GRAND TOTAL', 'Total models registered:', 'Report:', 'Page 1']) {
+  assert(regressionHtml.includes(text), text);
+}
+assert(!/RESUMEN|CONTINUACIÓN|ETIQUETAS|MUESTRA|FECHA|APARIENCIA|MEDIDA|Reporte:|Página|MODELO DEL/.test(regressionHtml));
+// Las tres apariencias son horizontales y las seis medidas verticales, alineadas en tres filas.
+const gridHtml = buildPhotoReportHtml(report, [buildReportPages(report)[2]]);
+const frames = [...gridHtml.matchAll(/<figure style="left:([\d.]+)pt;top:([\d.]+)pt;width:([\d.]+)pt;height:([\d.]+)pt">/g)].map(match => match.slice(1).map(Number));
+assert.equal(frames.length, 9);
+for (const [index, [x, y, width, height]] of frames.entries()) {
+  assert(Math.abs(width / height - (index < 3 ? 900 / 506 : 506 / 900)) < 0.0001);
+  assert(x >= 0 && x + width <= 792 && y >= 155 && y + height <= 564.001);
+  if (index < 3) assert.equal(x, frames[0][0]);
+  else assert(x > frames[0][0] + frames[0][2]);
+}
+assert.deepEqual(frames.slice(3).map(frame => frame[1]), frames.slice(0, 3).flatMap(frame => [frame[1], frame[1]]));
 
 /** Verifica que la preparación es secuencial y nunca omite una foto ilegible. */
 async function checkPreparation() {
@@ -152,7 +165,7 @@ assert.deepEqual(sampledPages.filter(page => page.kind === 'photos').map(page =>
 const sampledHtml = buildPhotoReportHtml(sampled);
 assert.equal((sampledHtml.match(/class="photo"/g) ?? []).length, 47);
 assert(sampledHtml.includes('<th>MODELS</th><th>QUANTITIES</th>'));
-assert(sampledHtml.includes('<th>TOTAL GENERAL</th><th>100</th>'));
+assert(sampledHtml.includes('<th>GRAND TOTAL</th><th>100</th>'));
 assert.equal(sampledHtml.split('LOTE 1').length - 1, 1);
 assert.equal(photoUtils.validateReportTable(sampled), null);
 assert(photoUtils.validateReportTable({ ...sampled, models: [] }));
@@ -187,7 +200,8 @@ async function checkPageExport() {
     constructor(...parts) { this.uri = parts.join('/'); }
     get exists() { return files.has(this.uri); }
     create() { files.set(this.uri, new Uint8Array()); }
-    write(bytes) { files.set(this.uri, bytes); }
+    // Emula la escritura asíncrona de expo-file-system en SDK 58.
+    async write(bytes) { await new Promise(resolve => setTimeout(resolve, 5)); files.set(this.uri, bytes); }
     async bytes() { return files.get(this.uri); }
     delete() { files.delete(this.uri); }
   }
@@ -214,7 +228,7 @@ async function checkPageExport() {
   assert.deepEqual(printed.map(html => (html.match(/class="photo"/g) ?? []).length), [0,2,9,9,9,9,9]);
   printed.forEach((html, index) => {
     assert.equal((html.match(/class="page"/g) ?? []).length, 1);
-    assert(html.includes(`Página ${index + 1}</span>`));
+    assert(html.includes(`Page ${index + 1}</span>`));
   });
   files.clear();
   extraPage = true;

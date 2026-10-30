@@ -8,7 +8,7 @@ import { categoryTitle, movePhoto, PHOTO_CATEGORIES, updateModelPhotos, modelSam
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Image, Modal, PanResponder, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Animated, Image, Modal, PanResponder, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View, type ViewInstance } from 'react-native';
 
 /** Coordenadas de pantalla usadas para detectar el destino del arrastre. */
 type Point = { x: number; y: number };
@@ -56,9 +56,10 @@ export default function EditReportScreen() {
   const dragRef = useRef<ReportPhoto | null>(null);
   const [movingPhoto, setMovingPhoto] = useState<ReportPhoto | null>(null);
   const [hovered, setHovered] = useState<PhotoCategory | null>(null);
-  const targets = useRef<Partial<Record<PhotoCategory, View | null>>>({});
+  // React Native 0.88 utiliza tipos de instancia para las referencias nativas.
+  const targets = useRef<Partial<Record<PhotoCategory, ViewInstance | null>>>({});
   const bounds = useRef<Partial<Record<PhotoCategory, { x: number; y: number; width: number; height: number }>>>({});
-  const root = useRef<View>(null);
+  const root = useRef<ViewInstance>(null);
   const origin = useRef({ x: 0, y: 0 });
   // El valor animado se crea una sola vez, sin leer referencias durante el render.
   const [position] = useState(() => new Animated.ValueXY());
