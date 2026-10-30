@@ -8,7 +8,7 @@ export const PHOTO_CATEGORIES = [
 
 /** Cada foto conserva su identidad y número aunque cambie de categoría. */
 export type PhotoCategory = typeof PHOTO_CATEGORIES[number]['id'];
-export type ReportPhoto = { id: string; uri: string; number: number; category: PhotoCategory; base64?: string | null; mimeType?: string | null };
+export type ReportPhoto = { id: string; uri: string; number: number; category: PhotoCategory; base64?: string | null; width?: number; height?: number; sampleNumber?: number };
 
 /** Un modelo pertenece a un lote y tiene sus propias etiquetas y fotografías. */
 export type MattressModel = { id: string; name: string; lot: string; quantity?: number; photos: ReportPhoto[] };
@@ -34,8 +34,9 @@ export function categoryForNumber(number: number): PhotoCategory {
 }
 
 /** Cambia solo la categoría y conserva la numeración y los datos de la imagen. */
-export function movePhoto(photos: ReportPhoto[], id: string, category: PhotoCategory) {
-  return photos.map(photo => photo.id === id ? { ...photo, category } : photo);
+export function movePhoto(photos: ReportPhoto[], id: string, category: PhotoCategory, sampleNumber?: number) {
+  // Las etiquetas son globales del modelo; al moverlas a una muestra se asigna su destino.
+  return photos.map(photo => photo.id === id ? { ...photo, category, ...(sampleNumber && (category === 'appearance' || category === 'measures') ? { sampleNumber } : {}) } : photo);
 }
 
 /** Actualiza únicamente las fotos del modelo seleccionado, manteniendo los demás lotes. */
@@ -48,6 +49,57 @@ export function categoryTitle(category: PhotoCategory) {
   return PHOTO_CATEGORIES.find(item => item.id === category)!.title;
 }
 
-/** Redondeo hacia arriba para no inspeccionar menos del 5%. */
-export function sampleCount(quantity: number) { return Math.ceil(Math.max(0, quantity) * 0.05); }
-export function requiredPhotos(quantity: number) { return sampleCount(quantity) * 9; }
+/** Redondea la inspección del 5 % hacia arriba: nunca se inspecciona menos de lo pedido. */
+export function sampleCount(quantity: number) {
+  return Number.isSafeInteger(quantity) && quantity > 0 ? Math.ceil(quantity / 20) : 0;
+}
+
+/** Los reportes anteriores sin cantidad conservan una muestra de nueve fotografías. */
+export function modelSampleCount(model: MattressModel) {
+  return model.quantity === undefined ? 1 : sampleCount(model.quantity);
+}
+
+/** Crea una fila vacía con identidad estable para conservar sus fotos al editar la tabla. */
+export function emptyModel(): MattressModel {
+  return { id: `${Date.now()}-${Math.random().toString(36).slice(2)}`, name: '', lot: '', quantity: 0, photos: [] };
+}
+
+/** Una sola validación se comparte entre la creación y la edición del cuadro inicial. */
+export function validateReportTable(report: ProductionReport): string | null {
+  if (!report.principalLot.trim()) return 'Ingresa el lote principal del reporte.';
+  if (!report.models.length) return 'Agrega por lo menos una fila de modelo.';
+  for (const [index, model] of report.models.entries()) {
+    if (!model.name.trim()) return `Ingresa el modelo de la fila ${index + 1}.`;
+    if (!modelSampleCount(model)) return `La cantidad de la fila ${index + 1} debe ser un entero positivo.`;
+  }
+  return null;
+}
+
+/** Copia los datos de la tabla normalizados sin eliminar fotografías existentes. */
+export function normalizeReportTable(report: ProductionReport): ProductionReport {
+  const principalLot = report.principalLot.trim().toUpperCase();
+  return { ...report, principalLot, models: report.models.map(model => ({ ...model, name: model.name.trim().toUpperCase(), lot: principalLot })) };
+}
+
+/** Fuente recuperable: la copia en memoria tiene prioridad sobre archivos temporales. */
+export function photoSourceUri(photo: ReportPhoto): string {
+  if (!photo.base64) return photo.uri;
+  if (photo.base64.startsWith('data:')) return photo.base64;
+  const mime = photo.base64.startsWith('iVBOR') ? 'image/png' : photo.base64.startsWith('UklGR') ? 'image/webp' : photo.base64.startsWith('R0lG') ? 'image/gif' : 'image/jpeg';
+  return `data:${mime};base64,${photo.base64}`;
+}
+
+/** Explica el primer faltante para impedir exportaciones parciales de la muestra. */
+export function missingReportPhotos(report: ProductionReport): string | null {
+  for (const model of report.models) {
+    for (const category of ['box', 'mattress'] as const) {
+      if (!model.photos.some(photo => photo.category === category)) return `${model.name}: falta ${categoryTitle(category).toLowerCase()}.`;
+    }
+    for (let sample = 1; sample <= modelSampleCount(model); sample++) {
+      // El editor puede reclasificar fotos; se exige la cantidad total sin deshacer esa decisión.
+      const count = model.photos.filter(photo => (photo.category === 'appearance' || photo.category === 'measures') && (photo.sampleNumber ?? 1) === sample).length;
+      if (count < 9) return `${model.name}, muestra ${sample}: faltan ${9 - count} fotografías de apariencia o medidas.`;
+    }
+  }
+  return null;
+}

@@ -1,5 +1,5 @@
 import type { PropsWithChildren, ReactElement } from 'react';
-import { StyleSheet } from 'react-native';
+import { StyleSheet, type ScrollViewInstance } from 'react-native';
 import Animated, {
   interpolate,
   useAnimatedRef,
@@ -26,7 +26,8 @@ export default function ParallaxScrollView({
   const backgroundColor = useThemeColor({}, 'background');
   // Normaliza unspecified sin cambiar los colores claros u oscuros existentes.
   const colorScheme = useColorScheme() === 'dark' ? 'dark' : 'light';
-  const scrollRef = useAnimatedRef<Animated.ScrollView>();
+  // La API estricta de React Native 0.88 tipa las referencias como instancias.
+  const scrollRef = useAnimatedRef<ScrollViewInstance>();
   const scrollOffset = useScrollOffset(scrollRef);
   const headerAnimatedStyle = useAnimatedStyle(() => {
     return {
