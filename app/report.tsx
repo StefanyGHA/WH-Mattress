@@ -1,4 +1,3 @@
-import { SafeAreaView } from 'react-native-safe-area-context';
 import Header from '@/components/Header';
 import ReportSummaryTable from '@/components/ReportSummaryTable';
 import CancelReportButton from '@/components/CancelReportButton';
@@ -13,7 +12,7 @@ import { exportReportPdf } from '@/utils/export-report';
 import * as Sharing from 'expo-sharing';
 import { useRouter } from 'expo-router';
 import { useMemo, useState } from 'react';
-import { Alert, Image, Platform, SectionList, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Image, Platform, SafeAreaView, SectionList, Text, TouchableOpacity, View } from 'react-native';
 
 /** Conserva las miniaturas y los estilos existentes de la vista previa. */
 function PhotoPanel({ photo }: { photo: ReportPhoto }) {

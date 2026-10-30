@@ -1,4 +1,3 @@
-import { SafeAreaView } from 'react-native-safe-area-context';
 import Header from '@/components/Header';
 import ModelTable from '@/components/ModelTable';
 import PhotoSourceButtons from '@/components/PhotoSourceButtons';
@@ -9,7 +8,7 @@ import { categoryTitle, movePhoto, PHOTO_CATEGORIES, updateModelPhotos, modelSam
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Image, Modal, PanResponder, ScrollView, Text, TextInput, TouchableOpacity, View, type ViewInstance } from 'react-native';
+import { Animated, Image, Modal, PanResponder, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View, type ViewInstance } from 'react-native';
 
 /** Coordenadas de pantalla usadas para detectar el destino del arrastre. */
 type Point = { x: number; y: number };

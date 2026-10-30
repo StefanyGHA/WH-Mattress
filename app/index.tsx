@@ -1,4 +1,3 @@
-import { SafeAreaView } from 'react-native-safe-area-context';
 import Header from '@/components/Header';
 import ModelTable from '@/components/ModelTable';
 import CancelReportButton from '@/components/CancelReportButton';
@@ -9,7 +8,7 @@ import { adjacentCaptureStep } from '@/utils/capture-flow';
 import { categoryTitle, createReport, emptyModel, modelSampleCount, normalizeReportTable, photoSourceUri, updateModelPhotos, validateReportTable, type ReportPhoto } from '@/utils/report-photos';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { BackHandler, Image, KeyboardAvoidingView, Platform, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { BackHandler, Image, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 /** Cuadro inicial editable y captura de nueve imágenes por cada unidad de la muestra. */
 export default function HomeScreen() {
