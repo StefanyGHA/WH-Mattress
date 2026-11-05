@@ -213,7 +213,7 @@ El editor respeta la reclasificación manual: exige nueve fotografías de aparie
 - Resumen inicial con fecha, lote, tabla **MODELS / QUANTITIES** y **GRAND TOTAL**.
 - El lote se muestra una sola vez al principio del PDF.
 - Dos etiquetas juntas en una página por modelo.
-- Una página con 3 fotos horizontales de **Overall Appearance**, una debajo de otra a la izquierda, y 6 fotos verticales de **Measures** en dos columnas a la derecha por cada colchón de la muestra. Un modelo con 100 unidades produce cinco páginas de fotos (45 imágenes), además de su página de etiquetas.
+- Una página con 3 fotos horizontales de **Overall Appearance**, dos arriba y la tercera centrada debajo a la izquierda, y 6 fotos verticales de **Measures** en tres columnas y dos filas a la derecha por cada colchón de la muestra. Un modelo con 100 unidades produce cinco páginas de fotos (45 imágenes), además de su página de etiquetas.
 - Cada página de fotos identifica el modelo y el número de muestra.
 - Las imágenes adicionales de una categoría pasan a páginas de continuación de la misma muestra.
 - Logo en cada página. Todas las fotografías, incluidas las etiquetas, se imprimen sin nombres, números individuales, bordes ni marcos.

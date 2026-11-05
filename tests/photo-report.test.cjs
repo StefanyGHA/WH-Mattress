@@ -106,17 +106,23 @@ for (const text of ['GENERAL SUMMARY', 'MATTRESS MODELS', 'MODELS · SAMPLE 1', 
   assert(regressionHtml.includes(text), text);
 }
 assert(!/RESUMEN|CONTINUACIÓN|ETIQUETAS|MUESTRA|FECHA|APARIENCIA|MEDIDA|Reporte:|Página|MODELO DEL/.test(regressionHtml));
-// Las tres apariencias son horizontales y las seis medidas verticales, alineadas en tres filas.
+// La referencia coloca dos apariencias arriba y una centrada abajo, con medidas en 3×2.
 const gridHtml = buildPhotoReportHtml(report, [buildReportPages(report)[2]]);
 const frames = [...gridHtml.matchAll(/<figure style="left:([\d.]+)pt;top:([\d.]+)pt;width:([\d.]+)pt;height:([\d.]+)pt">/g)].map(match => match.slice(1).map(Number));
 assert.equal(frames.length, 9);
 for (const [index, [x, y, width, height]] of frames.entries()) {
   assert(Math.abs(width / height - (index < 3 ? 900 / 506 : 506 / 900)) < 0.0001);
   assert(x >= 0 && x + width <= 792 && y >= 155 && y + height <= 564.001);
-  if (index < 3) assert.equal(x, frames[0][0]);
-  else assert(x > frames[0][0] + frames[0][2]);
+  if (index >= 3) assert(x > frames[1][0] + frames[1][2]);
 }
-assert.deepEqual(frames.slice(3).map(frame => frame[1]), frames.slice(0, 3).flatMap(frame => [frame[1], frame[1]]));
+assert.equal(frames[0][1], frames[1][1]);
+assert(frames[2][1] > frames[0][1] + frames[0][3]);
+assert.equal(frames[2][0] + frames[2][2] / 2, (frames[0][0] + frames[1][0] + frames[1][2]) / 2);
+assert.deepEqual(frames.slice(3).map(frame => frame[1]), [frames[3][1], frames[3][1], frames[3][1], frames[6][1], frames[6][1], frames[6][1]]);
+assert(frames[6][1] > frames[3][1] + frames[3][3]);
+assert.equal(frames[3][0], frames[6][0]);
+assert.equal(frames[4][0], frames[7][0]);
+assert.equal(frames[5][0], frames[8][0]);
 
 /** Verifica que la preparación es secuencial y nunca omite una foto ilegible. */
 async function checkPreparation() {

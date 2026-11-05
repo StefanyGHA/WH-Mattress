@@ -73,19 +73,34 @@ export function buildPhotoReportHtml(report: ProductionReport, selectedPages?: R
     if (page.kind === 'labels') {
       return metadata(page.model!, true) + panel(page.box, 42, 180, 340, 360) + panel(page.mattress, 410, 180, 340, 360);
     }
-    // Tres filas: apariencia horizontal a la izquierda y dos medidas verticales a la derecha.
-    // La proporción 900×506 se invierte para medidas, sin recortar ni deformar los originales.
+    // Distribución de referencia: dos apariencias arriba y una centrada debajo;
+    // medidas a la derecha en tres columnas y dos filas, conservando las proporciones.
     const appearance = page.appearance!;
     const measures = page.measures!;
-    const rowHeight = (409 - 20) / 3;
-    const landscapeWidth = rowHeight * 900 / 506;
-    const portraitWidth = rowHeight * 506 / 900;
-    const left = (792 - landscapeWidth - 36 - portraitWidth * 2 - 12) / 2;
-    const right = left + landscapeWidth + 36;
-    let html = metadata(page.model!, false, page.sampleNumber) + `<h2 style="left:${left}pt">OVERALL APPEARANCE</h2><h2 style="left:${right}pt">MEASURES</h2>`;
+    const left = 24;
+    const leftWidth = 438;
+    const right = 486;
+    const rightWidth = 282;
+    const gap = 10;
+    const landscapeWidth = (leftWidth - gap) / 2;
+    const landscapeHeight = landscapeWidth * 506 / 900;
+    const portraitWidth = (rightWidth - 16) / 3;
+    const portraitHeight = portraitWidth * 900 / 506;
+    // Ambos grupos terminan a la misma altura y sus títulos quedan sobre sus imágenes.
+    const appearanceTop = 564 - landscapeHeight * 2 - gap;
+    const measuresTop = 564 - portraitHeight * 2 - gap;
+    let html = metadata(page.model!, false, page.sampleNumber)
+      + `<h2 style="left:${left}pt;top:${appearanceTop - 22}pt;width:${leftWidth}pt;text-align:center">OVERALL APPEARANCE</h2>`
+      + `<h2 style="left:${right}pt;top:${measuresTop - 22}pt;width:${rightWidth}pt;text-align:center">MEASURES</h2>`;
     // También en continuaciones se dibujan únicamente las imágenes existentes.
-    appearance.forEach((photo, index) => { html += panel(photo, left, 155 + index * (rowHeight + 10), landscapeWidth, rowHeight); });
-    measures.forEach((photo, index) => { html += panel(photo, right + (index % 2) * (portraitWidth + 12), 155 + Math.floor(index / 2) * (rowHeight + 10), portraitWidth, rowHeight); });
+    appearance.forEach((photo, index) => {
+      const x = index < 2 ? left + index * (landscapeWidth + gap) : left + (leftWidth - landscapeWidth) / 2;
+      const y = appearanceTop + (index < 2 ? 0 : landscapeHeight + gap);
+      html += panel(photo, x, y, landscapeWidth, landscapeHeight);
+    });
+    measures.forEach((photo, index) => {
+      html += panel(photo, right + (index % 3) * (portraitWidth + 8), measuresTop + Math.floor(index / 3) * (portraitHeight + gap), portraitWidth, portraitHeight);
+    });
     return html;
   };
 
