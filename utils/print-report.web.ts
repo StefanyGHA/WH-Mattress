@@ -1,12 +1,13 @@
+import { createTranslator, LocalizedError, type Translate } from './i18n';
 /** Imprime el informe completo, no la vista de la app con su área de scroll recortada. */
-export async function printReportHtml(html: string): Promise<void> {
+export async function printReportHtml(html: string, t: Translate = createTranslator('es')): Promise<void> {
   const frame = document.createElement('iframe');
-  frame.title = 'Informe WH Mattress';
+  frame.title = 'WH Mattress report';
   frame.setAttribute('aria-hidden', 'true');
   frame.style.cssText = 'position:fixed;left:-10000px;top:0;width:1056px;height:816px;border:0;';
   const loaded = new Promise<void>((resolve, reject) => {
     frame.onload = () => resolve();
-    frame.onerror = () => reject(new Error('No se pudo cargar el documento del informe.'));
+    frame.onerror = () => reject(new LocalizedError('No se pudo cargar el documento del informe.', {}, t));
   });
   frame.srcdoc = html;
   document.body.appendChild(frame);
@@ -14,7 +15,7 @@ export async function printReportHtml(html: string): Promise<void> {
     await loaded;
     const content = frame.contentDocument;
     const target = frame.contentWindow;
-    if (!content || !target) throw new Error('No se pudo abrir el documento del informe.');
+    if (!content || !target) throw new LocalizedError('No se pudo abrir el documento del informe.', {}, t);
     // Espera la decodificación real de todas las fotos, incluidas las páginas adicionales.
     await Promise.all(Array.from(content.images, image => image.decode()));
     await content.fonts.ready;

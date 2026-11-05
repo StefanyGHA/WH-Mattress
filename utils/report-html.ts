@@ -103,7 +103,8 @@ export function buildPhotoReportHtml(report: ProductionReport, selectedPages?: R
     .model { left: 0; width: 280pt; } .model strong { font-size: 24pt; } .date { left: 280pt; width: 172pt; text-align: center; } .date strong { font-size: 18pt; } .lot { right: 0; width: 200pt; text-align: right; } .lot strong { font-size: 12pt; }
     small { display: block; font-size: 9pt; font-weight: normal; margin-top: 3pt; } .label-meta { top: 103pt; left: 35pt; right: 35pt; } .label-meta .model strong { font-size: 27pt; } .label-meta .date { left: 275pt; } .label-meta .date strong { font-size: 20pt; } .label-meta .lot strong { font-size: 13pt; }
     h2 { position: absolute; top: 140pt; margin: 0; font-size: 11pt; color: #315E78; }
-    figure { position: absolute; margin: 0; border: 1pt solid #8799A3; border-radius: 6pt; overflow: hidden; }
+    /* Solo la fotografía: sin marco, margen interno ni esquinas redondeadas. */
+    figure { position: absolute; margin: 0; padding: 0; border: 0; border-radius: 0; overflow: hidden; }
     .photo, .missing { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
     .missing { background: #F3F6F8; border: 1pt dashed #B8C5CC; display: flex; justify-content: center; align-items: center; color: #56666F; font-size: 10pt; }
     .summary-date { position: absolute; top: 106pt; width: 100%; text-align: center; font-size: 25pt; font-weight: bold; } .summary-date small { font-size: 11pt; margin-top: 6pt; }

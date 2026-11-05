@@ -10,7 +10,7 @@ function load(name, dependencies = {}) {
   const file = path.resolve(__dirname, '../utils', name + '.ts');
   const compiled = ts.transpileModule(fs.readFileSync(file, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText;
   const module = new Module(file);
-  module.require = name => dependencies[name] ?? require(name);
+  module.require = name => dependencies[name] ?? (name.startsWith('./') ? load(name.slice(2)) : require(name));
   module._compile(compiled, file);
   return module.exports;
 }

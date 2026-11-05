@@ -1,3 +1,6 @@
+import { useState } from 'react';
+import { usePreferences } from '@/contexts/preferences';
+import SettingsMenu from './SettingsMenu';
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
@@ -15,24 +18,29 @@ export default function Header({
   backDisabled = false,
 }: HeaderProps) {
   const router = useRouter();
+  const { t, colors } = usePreferences();
+  const [settingsOpen, setSettingsOpen] = useState(false);
   
    return (
-    <View style={styles.header}>
+    <View style={[styles.header, { backgroundColor: colors.header }]}>
       {showBackButton && (
         <TouchableOpacity
           style={styles.backButton}
-          accessibilityLabel="Retroceder"
+          accessibilityLabel={t('Retroceder')}
           disabled={backDisabled}
           onPress={() => onBack ? onBack() : router.canGoBack() ? router.back() : router.replace("/")}
         >
           <Ionicons
             name="arrow-back"
             size={26}
-            color="#FFFFFF"
+            color={colors.onHeader}
           />
         </TouchableOpacity>
       )}
 
+      {/* Abre ajustes sin salir del formulario ni perder fotografías. */}
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel={t('Ajustes')} disabled={backDisabled} onPress={() => setSettingsOpen(true)} style={{ position: 'absolute', right: 12, padding: 12, zIndex: 1 }}><Ionicons name="settings-outline" size={26} color={colors.onHeader} /></TouchableOpacity>
+      <SettingsMenu visible={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <View style={styles.logoContainer}>
         <Image
           source={require("../assets/images/wh-m.jpg")}
@@ -40,7 +48,7 @@ export default function Header({
           resizeMode="contain"
         />
 
-        <Text style={styles.logoText}>WH Mattress</Text>
+        <Text style={[styles.logoText, { color: colors.onHeader }]}>WH Mattress</Text>
       </View>
     </View>
   );
@@ -49,7 +57,6 @@ export default function Header({
 const styles = StyleSheet.create({
   header: {
     height: 140,
-    backgroundColor: "#28C9C2",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -67,7 +74,6 @@ const styles = StyleSheet.create({
   },
 
   logoText: {
-    color: "#FFFFFF",
     fontSize: 28,
     fontWeight: "600",
   },

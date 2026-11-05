@@ -145,6 +145,53 @@ npx expo start -c
 
 Si utilizas una compilación nativa propia y los cambios incluyen módulos nativos, vuelve a compilarla con `npx expo run:android` o `npx expo run:ios`, según la plataforma.
 
+## Ajustes de idioma y apariencia
+
+Toca el engranaje del encabezado para abrir **Ajustes / Settings** desde la creación, la vista previa o la edición. Abrir o cerrar el menú conserva los datos y las fotografías del reporte en curso.
+
+- **Idioma:** Según el sistema (predeterminado), Español o English. En modo automático se usa el primer idioma compatible de la lista del dispositivo; si ninguno es español o inglés, se usa inglés.
+- **Apariencia:** Según el sistema (predeterminado), Claro u Oscuro. El modo automático responde a los cambios de tema del teléfono.
+- Las selecciones se aplican inmediatamente y se guardan en el dispositivo para los siguientes inicios. Elegir de nuevo **Según el sistema** restaura el comportamiento automático.
+- El idioma y el tema afectan a la interfaz. **El PDF siempre utiliza su plantilla en inglés y fondo blanco**, con los nombres y lotes ingresados por el usuario.
+- El tema oscuro usa fondo `#121212`, tarjetas `#1E1E1E` y superficies elevadas `#222222`, con texto blanco y acentos desaturados. Las pruebas verifican contraste mínimo de 15,8:1 para texto principal en esas superficies y 4,5:1 para textos y botones de ambos temas.
+
+### Dependencias nuevas para los ajustes
+
+Se añadieron estas dos dependencias después de la migración a SDK 58:
+
+| Dependencia | Versión declarada | Uso |
+| --- | --- | --- |
+| `expo-localization` | `~58.0.5` | Leer el idioma del dispositivo y seguir los cambios del sistema. |
+| `@react-native-async-storage/async-storage` | `2.2.0` | Guardar las preferencias de idioma y apariencia en el dispositivo. |
+
+Después de recibir `package.json` y `package-lock.json` actualizados, instala todo con:
+
+```bash
+npm ci
+npx expo start -c
+```
+
+Para agregarlas manualmente a una copia anterior:
+
+```bash
+npx expo install expo-localization @react-native-async-storage/async-storage --npm
+npx expo start -c
+```
+
+También se alinearon los parches recomendados dentro de SDK 58 durante la comprobación de compatibilidad:
+
+| Paquete existente | Versión declarada actualizada |
+| --- | --- |
+| `expo` | `~58.0.23` |
+| `expo-linking` | `~58.0.16` |
+| `expo-router` | `~58.0.30` |
+| `expo-sharing` | `~58.0.22` |
+| `expo-splash-screen` | `~58.0.13` |
+| `react-native` | `0.88.1` |
+| `react-native-safe-area-context` | `~5.11.1` |
+
+El proyecto configura `expo-localization` con los idiomas `en` y `es`. Si utilizas una compilación nativa propia, vuelve a compilarla para incorporar los módulos y la configuración; reiniciar Metro no actualiza un APK ya instalado. Los ajustes también funcionan en web, donde se guardan en el almacenamiento del navegador.
+
 ## Cómo crear un reporte
 
 1. La fecha se obtiene automáticamente del dispositivo.
@@ -159,7 +206,7 @@ Si utilizas una compilación nativa propia y los cambios incluyen módulos nativ
 
 El editor respeta la reclasificación manual: exige nueve fotografías de apariencia/medidas por muestra en total; la distribución guiada inicial es 3 + 6. Los cambios de cantidad o de categoría no borran automáticamente fotografías existentes. Las filas eliminadas con fotos sí requieren confirmación.
 
-**Cancelar informe** funciona en web y en celular mediante un diálogo propio. Al confirmar se limpia el reporte y se vuelve al cuadro inicial. El reporte se mantiene en memoria durante la sesión: cerrar o recargar la aplicación puede perder los datos; todavía no hay almacenamiento persistente.
+**Cancelar informe** funciona en web y en celular mediante un diálogo propio. Al confirmar se limpia el reporte y se vuelve al cuadro inicial. El reporte se mantiene en memoria durante la sesión: cerrar o recargar la aplicación puede perder los datos; todavía no hay almacenamiento persistente de reportes. Las preferencias de idioma y apariencia sí se guardan en el dispositivo.
 
 ## Formato del PDF
 
@@ -169,7 +216,7 @@ El editor respeta la reclasificación manual: exige nueve fotografías de aparie
 - Una página con 3 fotos horizontales de **Overall Appearance**, una debajo de otra a la izquierda, y 6 fotos verticales de **Measures** en dos columnas a la derecha por cada colchón de la muestra. Un modelo con 100 unidades produce cinco páginas de fotos (45 imágenes), además de su página de etiquetas.
 - Cada página de fotos identifica el modelo y el número de muestra.
 - Las imágenes adicionales de una categoría pasan a páginas de continuación de la misma muestra.
-- Logo en cada página. Todas las fotografías, incluidas las etiquetas, se imprimen sin nombres ni números individuales.
+- Logo en cada página. Todas las fotografías, incluidas las etiquetas, se imprimen sin nombres, números individuales, bordes ni marcos.
 - Los textos de la plantilla del PDF están en inglés y el campo del modelo dice **MODELS**. Los nombres y lotes escritos por el usuario se conservan tal como se ingresaron.
 - Marcos con proporción aproximada de 900 × 506 px para apariencia y 506 × 900 px para medidas. Se muestra la imagen completa, sin deformarla ni recortarla.
 
@@ -223,7 +270,7 @@ npx tsc --noEmit
 npm run lint
 ```
 
-Las pruebas comprueban la fecha local, el muestreo del 5 %, la tabla y el total, el lote único, las fotografías por muestra, el retroceso, la copia de imágenes en memoria, la preparación secuencial y la unión paginada del PDF. También verifican la limpieza de temporales y que no se comparta un documento parcial.
+Las pruebas también comprueban idiomas compatibles, preferencias guardadas, traducciones parametrizadas y contraste de ambos temas. Las pruebas de reportes comprueban la fecha local, el muestreo del 5 %, la tabla y el total, el lote único, las fotografías por muestra, el retroceso, la copia de imágenes en memoria, la preparación secuencial y la unión paginada del PDF. También verifican la limpieza de temporales y que no se comparta un documento parcial.
 
 Para comprobar que la aplicación se empaqueta para cada plataforma:
 

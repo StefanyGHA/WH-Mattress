@@ -1,8 +1,9 @@
+import { usePreferences } from '@/contexts/preferences';
 import Header from '@/components/Header';
 import ModelTable from '@/components/ModelTable';
 import CancelReportButton from '@/components/CancelReportButton';
 import PhotoSourceButtons from '@/components/PhotoSourceButtons';
-import { reportStyles as s } from '@/components/report-styles';
+import { useReportStyles } from '@/components/report-styles';
 import { useReport } from '@/contexts/report';
 import { adjacentCaptureStep } from '@/utils/capture-flow';
 import { categoryTitle, createReport, emptyModel, modelSampleCount, normalizeReportTable, photoSourceUri, updateModelPhotos, validateReportTable, type ReportPhoto } from '@/utils/report-photos';
@@ -12,13 +13,16 @@ import { BackHandler, Image, KeyboardAvoidingView, Platform, SafeAreaView, Scrol
 
 /** Cuadro inicial editable y captura de nueve imágenes por cada unidad de la muestra. */
 export default function HomeScreen() {
+  const { t, colors, theme } = usePreferences();
+  const s = useReportStyles();
   const router = useRouter();
   const { report, setReport, position, setPosition } = useReport();
   const [initial] = useState(() => ({ ...createReport(''), models: [emptyModel()] }));
   const current = report ?? initial;
-  const [error, setError] = useState('');
+  const [showValidation, setShowValidation] = useState(false);
   const [busy, setBusy] = useState(false);
   const model = current.models.find(item => item.id === position?.modelId);
+  const error = showValidation && current ? validateReportTable(current, t) : null;
   // Si se elimina un modelo desde el editor, vuelve al cuadro sin reutilizar otra fila.
   const active = model && position ? position : null;
   const category = active?.category;
@@ -39,10 +43,10 @@ export default function HomeScreen() {
 
   /** Congela los datos normalizados de la tabla antes de comenzar la primera muestra. */
   const begin = () => {
-    const message = validateReportTable(current);
-    if (message) { setError(message); return; }
+    const message = validateReportTable(current, t);
+    if (message) { setShowValidation(true); return; }
     const normalized = normalizeReportTable(current);
-    setReport(normalized); setPosition({ modelId: normalized.models[0].id, sample: 1, category: 'box' }); setError('');
+    setReport(normalized); setPosition({ modelId: normalized.models[0].id, sample: 1, category: 'box' }); setShowValidation(false);
   };
 
   /** Guarda la copia JPEG por modelo y muestra sin alterar las fotografías anteriores. */
@@ -69,28 +73,28 @@ export default function HomeScreen() {
     <Header showBackButton={!!active} onBack={back} backDisabled={busy} />
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView contentContainerStyle={s.content} keyboardShouldPersistTaps="handled">
-        <Text style={s.title}>Nuevo reporte de producción</Text>
-        <Text style={s.text}>Fecha del reporte: {current.date}</Text>
+        <Text style={s.title}>{t('Nuevo reporte de producción')}</Text>
+        <Text style={s.text}>{t('Fecha del reporte: {date}', { date: current.date })}</Text>
         {!active ? <>
           {/* El lote se solicita solo una vez; todas las filas pertenecen a ese reporte. */}
-          <View style={s.card}><Text style={s.category}>Lote principal del reporte</Text><TextInput accessibilityLabel="Lote principal del reporte" value={current.principalLot} onChangeText={principalLot => setReport({ ...current, principalLot })} autoCapitalize="characters" placeholder="6LC0100" style={[s.text, { padding: 12, borderWidth: 1, borderColor: '#DDE5E9', borderRadius: 8 }]} /></View>
+          <View style={s.card}><Text style={s.category}>{t('Lote principal del reporte')}</Text><TextInput keyboardAppearance={theme} accessibilityLabel={t('Lote principal del reporte')} value={current.principalLot} onChangeText={principalLot => setReport({ ...current, principalLot })} autoCapitalize="characters" placeholder="6LC0100" placeholderTextColor={colors.muted} style={[s.text, s.input, { padding: 12, borderWidth: 1, borderColor: colors.border, borderRadius: 8 }]} /></View>
           <ModelTable report={current} onChange={setReport} />
-          <Text style={s.text}>Se inspecciona el 5 % de cada modelo, redondeando hacia arriba. Cada colchón de la muestra requiere 3 fotos de apariencia y 6 de medidas; las 2 etiquetas se toman una vez por modelo.</Text>
-          {!!error && <Text accessibilityRole="alert" style={{ color: '#DC2626' }}>{error}</Text>}
-          <TouchableOpacity style={s.button} onPress={begin}><Text style={s.buttonText}>Continuar</Text></TouchableOpacity>
+          <Text style={s.text}>{t('Se inspecciona el 5 % de cada modelo, redondeando hacia arriba. Cada colchón de la muestra requiere 3 fotos de apariencia y 6 de medidas; las 2 etiquetas se toman una vez por modelo.')}</Text>
+          {!!error && <Text accessibilityRole="alert" style={{ color: colors.danger }}>{error}</Text>}
+          <TouchableOpacity style={s.button} onPress={begin}><Text style={s.buttonText}>{t('Continuar')}</Text></TouchableOpacity>
         </> : <>
-          <Text style={s.category}>Modelo: {model!.name}</Text>
-          <Text style={s.text}>Cantidad: {model!.quantity ?? 20} · Muestra 5 %: {modelSampleCount(model!)} colchones</Text>
-          {(category === 'appearance' || category === 'measures') && <Text style={s.category}>Colchón de muestra {active.sample} de {modelSampleCount(model!)}</Text>}
+          <Text style={s.category}>{t('Modelo: {name}', { name: model!.name })}</Text>
+          <Text style={s.text}>{t('Cantidad: {quantity} · Muestra 5 %: {count} colchones', { quantity: model!.quantity ?? 20, count: modelSampleCount(model!) })}</Text>
+          {(category === 'appearance' || category === 'measures') && <Text style={s.category}>{t('Colchón de muestra {sample} de {total}', { sample: active.sample, total: modelSampleCount(model!) })}</Text>}
           <View style={s.card}>
-            <Text style={s.category}>{categoryTitle(category!)}</Text><Text style={s.text}>{group.length}/{target} fotografías</Text>
+            <Text style={s.category}>{t(categoryTitle(category!))}</Text><Text style={s.text}>{t('{count}/{target} fotografías', { count: group.length, target })}</Text>
             <PhotoSourceButtons key={`${model!.id}-${category}-${active.sample}`} category={category!} remaining={Math.max(1, target - group.length)} onPhotos={addPhotos} onBusy={setBusy} />
-            {group.length >= target && <Text style={s.text}>Completado. Puedes continuar o agregar fotografías adicionales.</Text>}
-            <View style={s.grid}>{group.map(photo => <View key={photo.id} style={s.photoCard}><Image source={{ uri: photoSourceUri(photo) }} style={s.photo} resizeMode="contain" /><Text style={s.caption}>Foto {photo.number}</Text></View>)}</View>
+            {group.length >= target && <Text style={s.text}>{t('Completado. Puedes continuar o agregar fotografías adicionales.')}</Text>}
+            <View style={s.grid}>{group.map(photo => <View key={photo.id} style={s.photoCard}><Image source={{ uri: photoSourceUri(photo) }} style={s.photo} resizeMode="contain" /><Text style={s.caption}>{t('Foto {n}', { n: photo.number })}</Text></View>)}</View>
           </View>
-          <TouchableOpacity disabled={busy || group.length < target} style={[s.button, (busy || group.length < target) && s.disabled]} onPress={next}><Text style={s.buttonText}>Continuar</Text></TouchableOpacity>
-          <TouchableOpacity disabled={busy} style={[s.button, s.secondary]} onPress={back}><Text style={s.buttonText}>Retroceder</Text></TouchableOpacity>
-          <TouchableOpacity disabled={busy} onPress={() => { setPosition(null); setError(''); }}><Text style={[s.text, { textAlign: 'center' }]}>Editar cuadro inicial</Text></TouchableOpacity>
+          <TouchableOpacity disabled={busy || group.length < target} style={[s.button, (busy || group.length < target) && s.disabled]} onPress={next}><Text style={s.buttonText}>{t('Continuar')}</Text></TouchableOpacity>
+          <TouchableOpacity disabled={busy} style={[s.button, s.secondary]} onPress={back}><Text style={s.buttonText}>{t('Retroceder')}</Text></TouchableOpacity>
+          <TouchableOpacity disabled={busy} onPress={() => { setPosition(null); setShowValidation(false); }}><Text style={[s.text, { textAlign: 'center' }]}>{t('Editar cuadro inicial')}</Text></TouchableOpacity>
         </>}
         {!!report && <CancelReportButton disabled={busy} />}
       </ScrollView>

@@ -1,3 +1,4 @@
+import { createTranslator, type Translate } from './i18n';
 /** Categorías compartidas por la captura guiada, el editor y las páginas del PDF. */
 export const PHOTO_CATEGORIES = [
   { id: 'box', title: 'FOTO DE LA ETIQUETA DE LA CAJA', short: 'Etiqueta de caja' },
@@ -65,12 +66,12 @@ export function emptyModel(): MattressModel {
 }
 
 /** Una sola validación se comparte entre la creación y la edición del cuadro inicial. */
-export function validateReportTable(report: ProductionReport): string | null {
-  if (!report.principalLot.trim()) return 'Ingresa el lote principal del reporte.';
-  if (!report.models.length) return 'Agrega por lo menos una fila de modelo.';
+export function validateReportTable(report: ProductionReport, t: Translate = createTranslator('es')): string | null {
+  if (!report.principalLot.trim()) return t('Ingresa el lote principal del reporte.');
+  if (!report.models.length) return t('Agrega por lo menos una fila de modelo.');
   for (const [index, model] of report.models.entries()) {
-    if (!model.name.trim()) return `Ingresa el modelo de la fila ${index + 1}.`;
-    if (!modelSampleCount(model)) return `La cantidad de la fila ${index + 1} debe ser un entero positivo.`;
+    if (!model.name.trim()) return t('Ingresa el modelo de la fila {n}.', { n: index + 1 });
+    if (!modelSampleCount(model)) return t('La cantidad de la fila {n} debe ser un entero positivo.', { n: index + 1 });
   }
   return null;
 }
@@ -90,15 +91,15 @@ export function photoSourceUri(photo: ReportPhoto): string {
 }
 
 /** Explica el primer faltante para impedir exportaciones parciales de la muestra. */
-export function missingReportPhotos(report: ProductionReport): string | null {
+export function missingReportPhotos(report: ProductionReport, t: Translate = createTranslator('es')): string | null {
   for (const model of report.models) {
     for (const category of ['box', 'mattress'] as const) {
-      if (!model.photos.some(photo => photo.category === category)) return `${model.name}: falta ${categoryTitle(category).toLowerCase()}.`;
+      if (!model.photos.some(photo => photo.category === category)) return t('{name}: falta {category}.', { name: model.name, category: t(categoryTitle(category)).toLowerCase() });
     }
     for (let sample = 1; sample <= modelSampleCount(model); sample++) {
       // El editor puede reclasificar fotos; se exige la cantidad total sin deshacer esa decisión.
       const count = model.photos.filter(photo => (photo.category === 'appearance' || photo.category === 'measures') && (photo.sampleNumber ?? 1) === sample).length;
-      if (count < 9) return `${model.name}, muestra ${sample}: faltan ${9 - count} fotografías de apariencia o medidas.`;
+      if (count < 9) return t('{name}, muestra {sample}: faltan {count} fotografías de apariencia o medidas.', { name: model.name, sample, count: 9 - count });
     }
   }
   return null;

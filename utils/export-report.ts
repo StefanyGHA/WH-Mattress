@@ -1,3 +1,4 @@
+import { createTranslator, LocalizedError, type Translate } from './i18n';
 import * as Print from 'expo-print';
 import { File, Paths } from 'expo-file-system';
 import { PDFDocument } from 'pdf-lib';
@@ -5,7 +6,7 @@ import { buildPhotoReportHtml, buildReportPages } from './report-html';
 import type { ProductionReport } from './report-photos';
 
 /** Genera y une páginas en serie para no cargar todo el muestreo en una sola WebView. */
-export async function exportReportPdf(report: ProductionReport, onProgress?: (page: number, total: number) => void): Promise<{ uri: string }> {
+export async function exportReportPdf(report: ProductionReport, onProgress?: (page: number, total: number) => void, t: Translate = createTranslator('es')): Promise<{ uri: string }> {
   const pages = buildReportPages(report);
   const merged = await PDFDocument.create();
   merged.setTitle(`Production Report - ${report.principalLot}`);
@@ -17,7 +18,7 @@ export async function exportReportPdf(report: ProductionReport, onProgress?: (pa
     try {
       const document = await PDFDocument.load(await temporary.bytes());
       // Evita compartir un archivo recortado o con páginas inesperadas del motor de impresión.
-      if (document.getPageCount() !== 1) throw new Error(`No se pudo generar correctamente la página ${index + 1}. Intenta nuevamente.`);
+      if (document.getPageCount() !== 1) throw new LocalizedError('No se pudo generar correctamente la página {n}. Intenta nuevamente.', { n: index + 1 }, t);
       const [copied] = await merged.copyPages(document, [0]);
       merged.addPage(copied);
     } finally {
@@ -25,7 +26,7 @@ export async function exportReportPdf(report: ProductionReport, onProgress?: (pa
       try { if (temporary.exists) temporary.delete(); } catch { /* El sistema puede limpiar la caché antes de esta llamada. */ }
     }
   }
-  if (merged.getPageCount() !== pages.length) throw new Error('El PDF quedó incompleto. Intenta nuevamente.');
+  if (merged.getPageCount() !== pages.length) throw new LocalizedError('El PDF quedó incompleto. Intenta nuevamente.', {}, t);
   const output = new File(Paths.cache, `WH-${Date.now()}-${Math.random().toString(36).slice(2)}.pdf`);
   output.create();
   // SDK 58 escribe de forma asíncrona: espera el archivo completo antes de compartirlo.
