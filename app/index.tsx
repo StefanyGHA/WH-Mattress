@@ -1,3 +1,4 @@
+import PhotoActions from '@/components/PhotoActions';
 import { usePreferences } from '@/contexts/preferences';
 import Header from '@/components/Header';
 import ModelTable from '@/components/ModelTable';
@@ -6,7 +7,7 @@ import PhotoSourceButtons from '@/components/PhotoSourceButtons';
 import { useReportStyles } from '@/components/report-styles';
 import { useReport } from '@/contexts/report';
 import { adjacentCaptureStep } from '@/utils/capture-flow';
-import { categoryTitle, createReport, emptyModel, modelSampleCount, normalizeReportTable, photoSourceUri, updateModelPhotos, validateReportTable, type ReportPhoto } from '@/utils/report-photos';
+import { replaceCapturedPhoto, categoryTitle, createReport, emptyModel, modelSampleCount, normalizeReportTable, photoSourceUri, updateModelPhotos, validateReportTable, type ReportPhoto } from '@/utils/report-photos';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { BackHandler, Image, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -61,6 +62,17 @@ export default function HomeScreen() {
     });
   };
 
+  /** Aplica eliminar o retomar al modelo actual sin alterar otras muestras o categorías. */
+  const editPhoto = (id: string, replacement?: ReportPhoto) => {
+    if (!model) return;
+    setReport(value => {
+      const latest = value?.models.find(item => item.id === model.id);
+      if (!value || !latest) return value;
+      const photos = replacement ? replaceCapturedPhoto(latest.photos, id, replacement) : latest.photos.filter(photo => photo.id !== id);
+      return updateModelPhotos(value, model.id, photos);
+    });
+  };
+
   /** Avanza entre etiquetas, categorías, muestras y modelos; el último paso abre el informe. */
   const next = () => {
     if (!active) return;
@@ -88,9 +100,9 @@ export default function HomeScreen() {
           {(category === 'appearance' || category === 'measures') && <Text style={s.category}>{t('Colchón de muestra {sample} de {total}', { sample: active.sample, total: modelSampleCount(model!) })}</Text>}
           <View style={s.card}>
             <Text style={s.category}>{t(categoryTitle(category!))}</Text><Text style={s.text}>{t('{count}/{target} fotografías', { count: group.length, target })}</Text>
-            <PhotoSourceButtons key={`${model!.id}-${category}-${active.sample}`} category={category!} remaining={Math.max(1, target - group.length)} onPhotos={addPhotos} onBusy={setBusy} />
+            <PhotoSourceButtons key={`${model!.id}-${category}-${active.sample}`} disabled={busy} category={category!} remaining={Math.max(1, target - group.length)} onPhotos={addPhotos} onBusy={setBusy} />
             {group.length >= target && <Text style={s.text}>{t('Completado. Puedes continuar o agregar fotografías adicionales.')}</Text>}
-            <View style={s.grid}>{group.map(photo => <View key={photo.id} style={s.photoCard}><Image source={{ uri: photoSourceUri(photo) }} style={s.photo} resizeMode="contain" /><Text style={s.caption}>{t('Foto {n}', { n: photo.number })}</Text></View>)}</View>
+            <View style={s.grid}>{group.map(photo => <View key={photo.id} style={s.photoCard}><Image source={{ uri: photoSourceUri(photo) }} style={s.photo} resizeMode="contain" /><PhotoActions photo={photo} disabled={busy} onBusy={setBusy} onDelete={() => editPhoto(photo.id)} onReplace={replacement => editPhoto(photo.id, replacement)} /><Text style={s.caption}>{t('Foto {n}', { n: photo.number })}</Text></View>)}</View>
           </View>
           <TouchableOpacity disabled={busy || group.length < target} style={[s.button, (busy || group.length < target) && s.disabled]} onPress={next}><Text style={s.buttonText}>{t('Continuar')}</Text></TouchableOpacity>
           <TouchableOpacity disabled={busy} style={[s.button, s.secondary]} onPress={back}><Text style={s.buttonText}>{t('Retroceder')}</Text></TouchableOpacity>

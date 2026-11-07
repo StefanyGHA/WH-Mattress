@@ -104,3 +104,8 @@ export function missingReportPhotos(report: ProductionReport, t: Translate = cre
   }
   return null;
 }
+
+/** Reemplaza solo el contenido de una foto, conservando su identidad, categoría y muestra. */
+export function replaceCapturedPhoto(photos: ReportPhoto[], id: string, replacement: ReportPhoto): ReportPhoto[] {
+  return photos.map(photo => photo.id === id ? { ...replacement, id: photo.id, number: photo.number, category: photo.category, sampleNumber: photo.sampleNumber } : photo);
+}

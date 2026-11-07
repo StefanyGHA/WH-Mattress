@@ -54,6 +54,7 @@ export const english = {
   'Organizar fotografías': 'Organize photos', 'Arrastra desde el control de la foto hasta una categoría de destino. También puedes tocar “Mover a”.': 'Drag the photo handle to a destination category. You can also tap “Move to”.',
   '{count} fotos': '{count} photos', ' · Soltar aquí': ' · Drop here', 'Modelo sin nombre': 'Unnamed model',
   'Colchón de muestra {n}': 'Sample mattress {n}', 'Anterior': 'Previous', 'Siguiente': 'Next',
+  'Retomar foto {n}': 'Retake photo {n}',
   'Reemplazar foto {n}': 'Replace photo {n}', 'Reemplazar': 'Replace', 'Cambiar categoría de foto {n}': 'Change category of photo {n}',
   'Mover a': 'Move to', 'Eliminar foto {n}': 'Delete photo {n}', 'Sin fotos. Arrastra una a esta categoría.': 'No photos. Drag one into this category.',
   'Guardar cambios': 'Save changes', 'Suelta en una categoría': 'Drop into a category', 'Eliminar fotografía': 'Delete photo',

@@ -68,6 +68,16 @@ assert.equal(updated.models[0].photos.find(photo => photo.id === 'first-7').cate
 assert.strictEqual(updated.models[1], second);
 assert.equal(multi.models[0].photos.find(photo => photo.id === 'first-7').category, 'measures');
 
+// Retomar conserva la identidad y no modifica las fotos vecinas ni la categoría original.
+const originalPhoto = { ...multi.models[0].photos[6], sampleNumber: 3 };
+const retakeGroup = [multi.models[0].photos[0], originalPhoto];
+const retaken = photoUtils.replaceCapturedPhoto(retakeGroup, originalPhoto.id, { id: 'new-camera-id', uri: 'camera.jpg', base64: 'new-jpeg', number: 1, category: 'box', sampleNumber: 1 });
+assert.strictEqual(retaken[0], retakeGroup[0]);
+assert.deepEqual(retaken[1], { id: originalPhoto.id, uri: 'camera.jpg', base64: 'new-jpeg', number: originalPhoto.number, category: originalPhoto.category, sampleNumber: 3 });
+assert.strictEqual(retakeGroup[1], originalPhoto);
+assert.equal(originalPhoto.uri, 'test');
+assert.deepEqual(photoUtils.replaceCapturedPhoto(retakeGroup, 'deleted-photo', retaken[1]), retakeGroup);
+
 // El logo incrustado debe seguir siendo exactamente el archivo wh-m.jpg solicitado.
 assert.equal(logo.REPORT_LOGO, 'data:image/jpeg;base64,' + fs.readFileSync(path.resolve(__dirname, '../assets/images/wh-m.jpg')).toString('base64'));
 const html = buildPhotoReportHtml(multi);

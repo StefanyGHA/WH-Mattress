@@ -1,3 +1,4 @@
+import PhotoActions from '@/components/PhotoActions';
 import { usePreferences } from '@/contexts/preferences';
 import Header from '@/components/Header';
 import ModelTable from '@/components/ModelTable';
@@ -5,7 +6,7 @@ import PhotoSourceButtons from '@/components/PhotoSourceButtons';
 import ConfirmDialog from '@/components/ConfirmDialog';
 import { useReportStyles } from '@/components/report-styles';
 import { useReport } from '@/contexts/report';
-import { categoryTitle, movePhoto, PHOTO_CATEGORIES, updateModelPhotos, modelSampleCount, normalizeReportTable, photoSourceUri, validateReportTable, type PhotoCategory, type ReportPhoto } from '@/utils/report-photos';
+import { replaceCapturedPhoto, categoryTitle, movePhoto, PHOTO_CATEGORIES, updateModelPhotos, modelSampleCount, normalizeReportTable, photoSourceUri, validateReportTable, type PhotoCategory, type ReportPhoto } from '@/utils/report-photos';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -112,7 +113,7 @@ export default function EditReportScreen() {
   /** Se conservan la identidad, la muestra y el número al reemplazar una foto ilegible. */
   const replacePhoto = (photos: ReportPhoto[]) => {
     if (!replacing || !photos[0]) return;
-    setDraft(current => current.map(photo => photo.id === replacing.id ? { ...photos[0], id: photo.id, number: photo.number, sampleNumber: photo.sampleNumber } : photo));
+    setDraft(current => replaceCapturedPhoto(current, replacing.id, photos[0]));
     setReplacing(null);
   };
   return <SafeAreaView style={s.screen}><View ref={root} collapsable={false} style={{ flex: 1 }}>
@@ -139,11 +140,11 @@ export default function EditReportScreen() {
       {!!error && <Text accessibilityRole="alert" style={{ color: colors.danger }}>{error}</Text>}
       {PHOTO_CATEGORIES.map(category => <View key={category.id} style={s.card}><Text style={s.category}>{t(category.title)}</Text>
         <View style={s.grid}>{draft.filter(photo => photo.category === category.id).map(photo => <View key={photo.id} style={[s.photoCard, dragging?.id === photo.id && { opacity: 0.35 }]}>
-          <Image source={{ uri: photoSourceUri(photo) }} style={s.photo} resizeMode="contain" /><Text style={s.caption}>{t('Foto {n}', { n: photo.number })}</Text><TouchableOpacity disabled={busy} accessibilityLabel={t('Reemplazar foto {n}', { n: photo.number })} onPress={() => setReplacing(photo)}><Text style={s.caption}>{t('Reemplazar')}</Text></TouchableOpacity>
+          <Image source={{ uri: photoSourceUri(photo) }} style={s.photo} resizeMode="contain" /><PhotoActions photo={photo} disabled={busy || !!dragging} onBusy={setBusy} onDelete={() => remove(photo)} onReplace={replacement => setDraft(current => replaceCapturedPhoto(current, photo.id, replacement))} /><Text style={s.caption}>{t('Foto {n}', { n: photo.number })}</Text><TouchableOpacity disabled={busy} accessibilityLabel={t('Reemplazar foto {n}', { n: photo.number })} onPress={() => setReplacing(photo)}><Text style={s.caption}>{t('Reemplazar')}</Text></TouchableOpacity>
           <DragHandle photo={photo} start={(item, point) => { if (!busy) start(item, point); }} move={move} end={end} />
-          <View style={[s.row, { justifyContent: 'space-between', padding: 8 }]}><TouchableOpacity accessibilityLabel={t('Cambiar categoría de foto {n}', { n: photo.number })} onPress={() => chooseCategory(photo)}><Text style={s.caption}>{t('Mover a')}</Text></TouchableOpacity><TouchableOpacity accessibilityLabel={t('Eliminar foto {n}', { n: photo.number })} onPress={() => remove(photo)}><Ionicons name="trash-outline" size={22} color={colors.danger} /></TouchableOpacity></View>
+          <View style={[s.row, { justifyContent: 'space-between', padding: 8 }]}><TouchableOpacity disabled={busy || !!dragging} accessibilityLabel={t('Cambiar categoría de foto {n}', { n: photo.number })} onPress={() => chooseCategory(photo)}><Text style={s.caption}>{t('Mover a')}</Text></TouchableOpacity><TouchableOpacity disabled={busy || !!dragging} accessibilityLabel={t('Eliminar foto {n}', { n: photo.number })} onPress={() => remove(photo)}><Ionicons name="trash-outline" size={22} color={colors.danger} /></TouchableOpacity></View>
         </View>)}</View>
-        {!!selectedModel && <PhotoSourceButtons category={category.id} remaining={1} onBusy={setBusy} onPhotos={photos => setDraft(current => {
+        {!!selectedModel && <PhotoSourceButtons disabled={busy || !!dragging} category={category.id} remaining={1} onBusy={setBusy} onPhotos={photos => setDraft(current => {
           const number = Math.max(0, ...selectedModel.photos.map(photo => photo.number)) + 1;
           return [...current, ...photos.map((photo, index) => ({ ...photo, number: number + index, sampleNumber: sample }))];
         })} />}
@@ -156,7 +157,7 @@ export default function EditReportScreen() {
     <Modal visible={!!replacing} transparent animationType="fade" onRequestClose={() => { if (!busy) setReplacing(null); }}>
       <View style={{ flex: 1, justifyContent: 'center', padding: 24, backgroundColor: colors.overlay }}><View style={[s.card, { backgroundColor: colors.elevated }]}>
         <Text style={s.title}>{t('Reemplazar foto {n}', { n: replacing?.number })}</Text>
-        {replacing && <PhotoSourceButtons category={replacing.category} remaining={1} onPhotos={replacePhoto} onBusy={setBusy} />}
+        {replacing && <PhotoSourceButtons disabled={busy || !!dragging} category={replacing.category} remaining={1} onPhotos={replacePhoto} onBusy={setBusy} />}
         <TouchableOpacity disabled={busy} onPress={() => setReplacing(null)}><Text style={s.text}>{t('Volver')}</Text></TouchableOpacity>
       </View></View>
     </Modal>
