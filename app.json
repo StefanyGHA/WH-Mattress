@@ -2,7 +2,7 @@
     "expo": {
       "name": "Reportes wh-mattress",
       "slug": "wh-mattress",
-      "version": "2.0.1",
+      "version": "2.0.2",
       "orientation": "portrait",
       "icon": "./assets/images/wh-m-logo.png",
       "scheme": "whmattress",

@@ -1,17 +1,22 @@
 import { createTranslator, LocalizedError, type Translate } from './i18n';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
+import { orderFilesByCaptureTime } from './photo-capture-time';
 import { preparePrintPhoto } from './prepare-report-images';
 import type { PhotoCategory, ReportPhoto } from './report-photos';
 
 /** Las tres entradas comparten conversión y copia recuperable, sin depender de rutas temporales. */
 export type PhotoSource = 'camera' | 'gallery' | 'files';
-export async function acquirePhotos(source: PhotoSource, remaining: number, category: PhotoCategory, t: Translate = createTranslator('es')): Promise<ReportPhoto[]> {
+export async function acquirePhotos(source: PhotoSource, remaining: number, category: PhotoCategory, t: Translate = createTranslator('es'), onUncertainFileOrder?: () => void): Promise<ReportPhoto[]> {
   let assets: { uri: string; base64?: string | null }[];
+  let uncertainFileOrder = false;
   if (source === 'files') {
+    const pickerOpenedAt = Date.now();
     const result = await DocumentPicker.getDocumentAsync({ type: 'image/*', multiple: remaining > 1, copyToCacheDirectory: true });
     if (result.canceled) return [];
-    assets = result.assets;
+    const ordered = await orderFilesByCaptureTime(result.assets, pickerOpenedAt);
+    assets = ordered.assets;
+    uncertainFileOrder = ordered.uncertain;
   } else {
     if (source === 'camera' && !(await ImagePicker.requestCameraPermissionsAsync()).granted) throw new LocalizedError('Permite el acceso a la cámara desde los ajustes del teléfono.', {}, t);
     const result = source === 'camera'
@@ -28,5 +33,6 @@ export async function acquirePhotos(source: PhotoSource, remaining: number, cate
     try { photos.push({ ...photo, base64: await preparePrintPhoto(photo) }); }
     catch { throw new LocalizedError('No se pudo leer la imagen {n} seleccionada. Verifica que el archivo esté descargado y vuelve a intentarlo.', { n: index + 1 }, t); }
   }
+  if (uncertainFileOrder) onUncertainFileOrder?.();
   return photos;
 }

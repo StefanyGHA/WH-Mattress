@@ -198,8 +198,8 @@ El proyecto configura `expo-localization` con los idiomas `en` y `es`. Si utiliz
 2. Escribe el único lote del reporte en el formulario inicial.
 3. Completa el cuadro **MODELS / QUANTITIES** con el nombre de cada modelo y su cantidad de unidades. Usa **Agregar fila** o la × de una fila para eliminarla. Si tiene fotos, se solicita confirmación antes de borrar.
 4. La aplicación calcula el 5 % por modelo, redondeando hacia arriba y con mínimo un colchón para cantidades positivas. Por ejemplo: 100 unidades → 5 colchones de muestra → 45 fotos de apariencia/medidas; 267 unidades → 14 colchones. El cuadro también muestra el total general de unidades.
-5. Pulsa **Continuar**. Se piden las dos etiquetas una vez por modelo: primero la de la caja y después la del colchón.
-6. Para cada colchón de muestra se solicitan 3 fotografías de **Overall Appearance** y 6 de **Measures**. Se puede tomar la foto, elegirla de la galería o importarla con **Archivos**. También se pueden agregar fotos adicionales antes de continuar.
+5. Pulsa **Continuar**. Se abre una sola vista para las dos etiquetas por modelo. Selecciónalas juntas desde Galería o Archivos, en orden: caja y colchón. Cámara encadena las dos tomas; cancelar conserva las ya aceptadas.
+6. Para cada colchón de muestra se abre una segunda vista para cargar las nueve fotografías juntas: las primeras 3 se asignan a **Overall Appearance** y las siguientes 6 a **Measures**. Se puede tomar la foto, elegirla de la galería o importarla con **Archivos**. También se pueden agregar fotos adicionales antes de continuar. En Cámara las tomas se encadenan hasta completar las que faltan, guardando cada imagen aceptada.
 7. La flecha del encabezado y **Retroceder** vuelven al paso anterior conservando las fotografías. **Editar cuadro inicial** permite regresar a la tabla para corregir modelos o cantidades.
 8. Al terminar el último modelo se abre el informe. En **Editar informe** puedes corregir el cuadro, elegir el modelo y la muestra, arrastrar fotos entre categorías, agregar fotos faltantes o usar **Reemplazar** si una imagen es incorrecta o ilegible.
 9. Guarda los cambios y pulsa **Generar y compartir PDF**. Si faltan etiquetas o no se alcanzan las nueve fotos de una muestra, se indica qué debes completar.
@@ -207,6 +207,36 @@ El proyecto configura `expo-localization` con los idiomas `en` y `es`. Si utiliz
 El editor respeta la reclasificación manual: exige nueve fotografías de apariencia/medidas por muestra en total; la distribución guiada inicial es 3 + 6. Los cambios de cantidad o de categoría no borran automáticamente fotografías existentes. Las filas eliminadas con fotos sí requieren confirmación.
 
 **Cancelar informe** funciona en web y en celular mediante un diálogo propio. Al confirmar se limpia el reporte y se vuelve al cuadro inicial. El reporte se mantiene en memoria durante la sesión: cerrar o recargar la aplicación puede perder los datos; todavía no hay almacenamiento persistente de reportes. Las preferencias de idioma y apariencia sí se guardan en el dispositivo.
+
+## Importar desde Archivos
+
+**Archivos** abre directamente el selector de documentos de iOS o Android. Permite elegir imágenes que estén en Archivos, Descargas o los proveedores disponibles, aunque no estén en Galería. Se pueden seleccionar varias fotos de una sola vez. No se pide una carpeta ni se abre un explorador o una revisión posterior dentro de la app.
+
+Cada selección múltiple de **Archivos** se ordena de la captura más antigua a la más reciente antes de asignar categorías. Tomen primero la foto de la caja y luego la del colchón. Para cada muestra, tomen primero las tres de apariencia y luego las seis de medidas. Seleccionen juntas las dos etiquetas o las nueve fotos del grupo correspondiente.
+
+La app compara la fecha de captura del EXIF, incluidos los subsegundos y la zona horaria cuando están disponibles. Si esa información falta o no distingue todas las fotos, intenta ordenarlas por la fecha y hora del nombre (por ejemplo, `6LC0181_SE16K_2026-10-31_09-47-22.jpg`) o por la fecha de modificación original que entrega Archivos. Si el orden sigue sin poder determinarse, aparece un aviso y se puede usar **Cambiar orden**. Cada muestra se numera desde 1. Cámara y Galería conservan su forma de ordenar.
+
+La lectura de metadatos utiliza `exifreader` **4.54.0**. Con `package.json` y `package-lock.json` actualizados, ejecuta `npm ci`. Si necesitas agregar solo esta dependencia a una copia anterior:
+
+```bash
+npm install --save-exact exifreader@4.54.0
+```
+
+## Corregir el orden con miniaturas numeradas
+
+Después de cargar las fotos desde Archivos, **Cambiar orden** abre un cuadro con todas las miniaturas del grupo (dos etiquetas o nueve fotos de la muestra, incluidas las adicionales). Toca las imágenes en la secuencia deseada para asignarles 1, 2, 3… Tocar de nuevo una imagen la desmarca; **Reiniciar numeración** permite empezar otra vez.
+
+**Usar este orden** se habilita cuando todas están numeradas y confirma el orden para la vista previa y el PDF. **Cancelar** cierra sin modificar las fotografías. Los espacios conservan su categoría, modelo y muestra; los nombres y fechas de archivo no intervienen. El cuadro es opcional y se abre desde Cambiar orden.
+
+## Controles de fotografías
+
+La papelera roja elimina la fotografía. El icono de recarga abre Cámara, Galería y Archivos para reemplazarla sin cambiar su posición, número, modelo, categoría ni muestra. Cancelar o una lectura fallida conserva el original.
+
+Se usan los SVG locales `assets/icons/trashcan_icon.svg` y `assets/icons/reload_icon.svg`, incrustados para que funcionen sin transformadores SVG adicionales. No se añadieron dependencias para este cambio. Si reemplazas esos archivos, actualiza su copia incrustada con:
+
+```bash
+node scripts/generate-photo-icons.cjs
+```
 
 ## Formato del PDF
 

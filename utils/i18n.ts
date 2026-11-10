@@ -1,5 +1,29 @@
 /** Catálogo de la interfaz: el PDF conserva su plantilla inglesa independiente. */
 export const english = {
+  'No se pudo determinar el orden de todas las fotos por fecha. Revisa las posiciones y usa Cambiar orden si hace falta.': 'Some photos could not be ordered by date. Check their positions and use Change order if needed.',
+
+  'Reiniciar numeración': 'Reset numbering',
+  'Cambiar orden': 'Change order', 'Terminar orden': 'Finish ordering',
+  'Intercambiar posición {n}': 'Swap position {n}',
+  'Toca la segunda foto para intercambiarlas.': 'Tap the second photo to swap them.',
+  'Toca las dos fotos que deseas intercambiar. Los cambios se guardan al instante.': 'Tap the two photos you want to swap. Changes are saved immediately.',
+
+  'Seleccionar archivos': 'Select files',
+  'Toca las fotos en el orden del reporte. Los números aparecen al seleccionarlas.': 'Tap photos in report order. Numbers appear as you select them.',
+  'Carpeta anterior': 'Parent folder', 'No se pudo abrir esta carpeta.': 'Could not open this folder.',
+  'No hay imágenes en esta carpeta.': 'There are no images in this folder.',
+  'Agregar {count} fotos': 'Add {count} photos',
+
+  'Orden de las fotos': 'Photo order',
+  'Revisa los números antes de agregar. Si no coinciden, pulsa “Marcar orden” y toca las fotos en el orden correcto.': 'Check the numbers before adding. If they are incorrect, tap “Set order” and tap the photos in the correct order.',
+  '{count}/{total} fotos numeradas': '{count}/{total} photos numbered',
+  'Marcar orden': 'Set order', 'Usar este orden': 'Use this order',
+  'Imagen {n}, posición {position}': 'Image {n}, position {position}',
+
+  'Etiquetas del modelo': 'Models labels', 'Apariencia y medidas': 'Appearance and measures',
+  'Orden: 1 etiqueta de caja, 2 etiqueta del colchón.': 'Order: 1 box label, 2 mattress label.',
+  'Orden: las primeras 3 fotos son de apariencia y las siguientes 6 de medidas.': 'Order: the first 3 photos are appearance and the next 6 are measures.',
+
   'Ajustes': 'Settings', 'Idioma': 'Language', 'Apariencia': 'Appearance',
   'Según el sistema': 'Use system setting', 'Español': 'Español', 'Inglés': 'English',
   'Claro': 'Light', 'Oscuro': 'Dark', 'Cerrar': 'Close', 'Retroceder': 'Back',
